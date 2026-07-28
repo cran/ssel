@@ -1,0 +1,254 @@
+---
+title: "Ensemble estimators and residual offsets"
+output: rmarkdown::html_vignette
+bibliography: ../inst/REFERENCES.bib
+vignette: >
+  %\VignetteIndexEntry{Ensemble estimators and residual offsets}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+library(ssel)
+```
+
+This article explains the estimators used by the supervised helper family.
+It is important to keep them separate: `trainRegressionModel()` constructs
+cell-level OOF and unseen-row ensembles, `oofEnsemble()` independently
+reconstructs training-row residuals, `auditQuantiles()` summarizes those
+residuals as signed offsets, and the two delivery helpers apply different
+selection rules. `modelPipeline()` orchestrates these helpers; it is not an
+additional statistical estimator.
+
+## Notation and cells
+
+Let $r$ identify a response, $d$ a dataset, $m$ a learner, and $i$ a
+training row. A **cell** is one response--dataset pair $(r,d)$. For a cell,
+$y_i$ is the observed response and $\hat y_{mi}^{OOF}$ is learner $m$'s
+out-of-fold (OOF) prediction. RMSE and response predictions have the response's
+units; squared sample correlation $R^2$ and normalized weights are
+dimensionless.
+
+The principal API mapping is:
+
+| Mathematical role | Public helper |
+|---|---|
+| fit caret learners and retain selected-tuning OOF rows | `trainModel()`, `trainRegressionModel()` |
+| construct cell-level OOF and unseen-row ensembles | `trainRegressionModel()` |
+| independently reconstruct training-row OOF residuals | `oofEnsemble()` |
+| summarize residuals as signed offsets | `auditQuantiles()` |
+| select a response-level cell | `predictModel()` |
+| select final row-level RMSE candidates | `aggregateResponses()` |
+| compute the package optimism diagnostic | `auditOverfit()` |
+
+## Fitting and OOF scores
+
+Learners are fitted separately with `caret::train()` [@kuhn2008]. Through
+`trainModel()`, ssel requests five-fold cross-validation, RMSE tuning,
+selected-tuning holdout predictions, and `tuneLength = 10`. A direct
+`trainRegressionModel()` call instead uses its `.numberCV`, `.tuneLength`, and
+`.metric` arguments. The tuning length requests method-specific grid
+granularity; it is not a number of points per tuning parameter.
+
+Separate learner calls do not receive a common explicit resampling index.
+Their saved OOF rows therefore support learner-specific score estimation, but
+ssel does not claim identical folds across learners.
+
+For each retained learner in cell $(r,d)$, evaluation reports
+
+$$
+\operatorname{RMSE}_{mrd}
+=\left\{\frac{1}{n}\sum_i(y_i-\hat y_{mi}^{OOF})^2\right\}^{1/2}.
+$$
+
+$$
+R^2_{mrd}=\operatorname{cor}(y,\hat y_m^{OOF})^2.
+$$
+
+The package defines two cell-local weighting policies:
+
+$$
+w^{R2}_{mrd}=\frac{R^2_{mrd}}{\sum_jR^2_{jrd}},
+\qquad
+w^{RMSE}_{mrd}
+=\frac{\operatorname{RMSE}_{mrd}^{-1}}
+       {\sum_j\operatorname{RMSE}_{jrd}^{-1}}.
+$$
+
+The corresponding OOF ensemble is
+
+$$
+\hat y_{ird}^{g,OOF}=\sum_m w^g_{mrd}\hat y_{mi}^{OOF},
+\qquad g\in\{R2,RMSE\}.
+$$
+
+These normalized scores are package policies, not estimates of theoretically
+optimal ensemble weights and not guarantees that an ensemble improves every
+learner.
+
+## Unseen-row ensembles are cell-local
+
+During OOF evaluation, `trainRegressionModel()` stores the exact named
+$R^2$ and RMSE lists for every cell. Before predicting unseen rows in
+$(r,d)$, it restores that cell's lists and intersects their names with the
+learners that produced valid predictions for that same cell. A missing model
+or a missing prediction removes a learner only from the current cell.
+
+The unseen-row pass uses the same normalization formulas. Its documented
+fallback substitutes equal weights when the retained $R^2$ values, or the
+reciprocal RMSE values, contain a missing value or sum to zero. A cell without
+stored OOF score state has no unseen-row ensemble. Thus one cell neither
+borrows scores from nor prunes methods for another cell.
+
+## Independent OOF residual reconstruction
+
+`oofEnsemble()` does not reuse the preceding score state. It recomputes a
+method-level RMSE from each fitted object's saved, projected OOF predictions
+and defines independent inverse-RMSE weights $\tilde w_{mrd}$. Its cast key is
+jointly $h=(i,o)$, where $i$ is the caret row index and $o$ the averaged
+saved observation. With $A_h$ denoting learners available at that key,
+
+$$
+\hat y_h^{OOF}=\Pi_{[a,b]}\!\left(
+\frac{\sum_{m\in A_h}\tilde w_{mrd}\tilde y_{mh}}
+     {\sum_{m\in A_h}\tilde w_{mrd}}
+\right).
+$$
+
+$$
+e_h=o-\hat y_h^{OOF}.
+$$
+
+Available learners are renormalized row by row. If saved observations differ
+between learners for one row index, they form different joint keys; repeated
+row indices and sample identifiers can therefore be legitimate output rows.
+
+For valid bounds $a\le b$, the interval projection used above is
+
+$$
+\Pi_{[a,b]}(z)=\min\{b,\max\{a,z\}\}.
+$$
+
+This is the ordinary projection onto a closed interval [@parikh2014]. Bounds
+are not proactively reordered, so this name applies only when $a\le b$.
+
+## Signed residual offsets
+
+`auditQuantiles()` pools reconstructed residual rows separately within each
+cell. For $p\in\{0.50,0.90,0.95\}$, sort the $n$ residuals and define
+
+$$
+H=(n-1)p+1.
+$$
+
+$$
+j=\lfloor H\rfloor,\qquad \gamma=H-j.
+$$
+
+R's type-7 sample quantile is then
+
+$$
+q_{p,rd}=(1-\gamma)e_{(j)}+\gamma e_{(j+1)},
+$$
+
+with the endpoint convention described by @hyndman1996. The values are signed,
+cell-pooled, and expressed in response units. Delivery helpers form
+
+$$
+Q_{p,ird}=\Pi_{[a,b]}\{\hat y_{ird}+q_{p,rd}\}.
+$$
+
+These are descriptive point-plus-residual-offset estimates. They are not
+conditional predictive quantiles, calibrated uncertainty intervals, or a
+conformal coverage procedure; those require different constructions
+[@barber2021].
+
+## Two distinct selection rules
+
+`predictModel()` first chooses one eligible cell per response. For
+`ensemble.RMSE` it takes the first minimum-RMSE row; for `ensemble.R2` it takes
+the first maximum $R^2$ row:
+
+$$
+d_r^{RMSE}=\operatorname*{first\,argmin}_{d}\operatorname{RMSE}_{rd}.
+$$
+
+$$
+d_r^{R2}=\operatorname*{first\,argmax}_{d}R^2_{rd}.
+$$
+
+`aggregateResponses()` applies a later and different rule. Its candidates are
+only unseen `ensemble.RMSE` points and reconstructed training OOF points. For
+each sample $i$ and response $r$, it selects
+
+$$
+d^*_{ir}=\operatorname*{first\,argmax}_{d}R^2_{rd}.
+$$
+
+The selected candidate supplies all three signed offsets. Because the second
+rule is grouped by sample and excludes `ensemble.R2` candidates, the two
+selectors must not be interpreted as one global best-dataset operation.
+
+## Optimism diagnostic
+
+`auditOverfit()` compares projected in-sample RMSE with the arithmetic mean of
+the fitted caret object's stored resample RMSE values:
+
+$$
+\operatorname{rel\_optimism}
+=\frac{\overline{\operatorname{RMSE}}_{CV}-\operatorname{RMSE}_{in}}
+       {\max\{\overline{\operatorname{RMSE}}_{CV},10^{-9}\}}.
+$$
+
+Its labels and thresholds are ssel policy. The value is a diagnostic, not a
+hypothesis test, a universal measure of overfitting, or an input to final
+aggregation.
+
+## Executable residual-offset example
+
+The example below creates one fitted-object fixture with two equal signed OOF
+residuals. All three type-7 offsets must therefore equal one.
+
+```{r residual-offset-example}
+root <- tempfile("ssel-offsets-")
+model_dir <- file.path(root, "model")
+train_dir <- file.path(root, "train")
+summary_dir <- file.path(root, "summary")
+dir.create(model_dir, recursive = TRUE)
+dir.create(train_dir)
+
+data.table::fwrite(
+  data.table::data.table(y = c(1, 3)),
+  file.path(train_dir, "target_demo_TRAIN.csv")
+)
+data.table::fwrite(
+  data.table::data.table(SampleID = c("S1", "S2")),
+  file.path(train_dir, "target_demo_TRAIN_ids.csv")
+)
+fit <- list(
+  pred = data.frame(
+    tune = 1L, pred = c(0, 2), obs = c(1, 3), rowIndex = 1:2
+  ),
+  bestTune = data.frame(tune = 1L)
+)
+saveRDS(fit, file.path(model_dir, "lm_target_demo.Rds"))
+
+offsets <- auditQuantiles(
+  .path.model = model_dir,
+  .path.train = train_dir,
+  .path.summary = summary_dir,
+  .response_pattern = "target",
+  verbose = FALSE
+)
+offsets$quantiles
+stopifnot(all(offsets$quantiles[, c("q_50", "q_90", "q_95")] == 1))
+
+unlink(root, recursive = TRUE)
+```
+
+The complete argument, file, projection, skip, and side-effect contracts live
+in the linked function reference pages. The iterative multi-response and
+pseudo-label policies are described in their own articles.
+
+## References

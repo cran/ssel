@@ -1,0 +1,223 @@
+---
+title: "Range-ratio pseudo-label promotion"
+output: rmarkdown::html_vignette
+bibliography: ../inst/REFERENCES.bib
+vignette: >
+  %\VignetteIndexEntry{Range-ratio pseudo-label promotion}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+library(ssel)
+```
+
+`semiSupervisedPipeline()` implements ssel's row-promotion layer. It promotes
+selected prediction rows as pseudo-labels, refits the supervised helper
+family, and uses a separate OOF gauge to accept or revert a candidate round.
+Pseudo-labeling is a broad semi-supervised pattern [@vanengelen2020survey], but
+the range ratio, budget, gauge, and state transitions below are package-defined
+policies. They are not tri-training, co-training regression, held-out
+validation, or calibrated predictive uncertainty.
+
+## Symbols and input pools
+
+Let $s=0,1,\ldots$ index rounds, $r$ a response, $u$ a prediction-row
+key, $m$ a learner, and $d$ a dataset. The first retained input CSV alone
+defines two ordered row-level vectors:
+
+$$
+L=(u:\texttt{set}="train").
+$$
+
+$$
+U=(u:\texttt{set}="predict").
+$$
+
+These are vectors, not mathematical sets: order, duplicates, and missing keys
+remain. Consequently, $|U|=\operatorname{length}(U)$ counts rows, while a
+later promotion budget spends unique keys. Other input CSVs are not checked to
+have matching pools.
+
+`allResponses` should name every response column so non-target responses are
+removed before fitting. Missing names are ignored; an omitted response can
+therefore remain and be numerically coerced as a predictor.
+
+## Optional augmented-data warm start
+
+When `.path.iter` is supplied, exactly one target response is required. The
+function reads lexically ordered `metrics_<integer>.csv` files, keeps that
+response's `ensemble.RMSE` rows, and chooses the first row attaining the global
+maximum $R^2$. Its iteration number selects one `datasets_<iterStar>`
+directory.
+
+This is an augmented-dataset snapshot selection. It does not consume a
+stitched model, rerun a chain sweep, or provide an iteration-zero fallback.
+Without `.path.iter`, `iterStar` in the return value is `NA_integer_`.
+
+## Range-ratio promotion score
+
+For original prediction key $u$, response $r$, and round $s$, collect
+all available projected ordinary base-method predictions across configured
+datasets:
+
+$$
+A_{ur}^{(s)}=
+\{f_{mdr}^{(s)}(u)\}_{\mathrm{available}}.
+$$
+
+$$
+S_{ur}^{(s)}=\max A_{ur}^{(s)}-\min A_{ur}^{(s)}.
+$$
+
+A pair is eligible only when at least two distinct method names are available;
+multiple datasets from one method do not satisfy this condition. Let
+$\bar f_{ur,last}^{(s)}(u)$ be the last matching ordinary `ensemble.RMSE`
+value in response-file concatenation and update order. ssel defines
+
+$$
+D_{ur}^{(s)}=
+\frac{S_{ur}^{(s)}}
+     {\max\{1,|\bar f_{ur,last}^{(s)}(u)|\}}.
+$$
+
+Promotion uses the strict comparison $D_{ur}^{(s)}<\tau$. Equal finite base
+predictions give $D=0$; a missing member makes the score missing. The score
+is dimensionless, but the fixed denominator floor makes it non-invariant to
+response rescaling and translation. It is neither a probability nor an
+uncertainty calibration.
+
+```{r range-ratio}
+base_predictions <- c(lm = 10, glm = 11)
+ensemble_last <- 10.5
+score <- diff(range(base_predictions)) / max(1, abs(ensemble_last))
+c(score = score, promotes_at_tau_0.1 = score < 0.1)
+```
+
+## Key budget and pseudo-label rows
+
+Let $c=\texttt{promotionCap}$, let $P$ be the accepted pseudo-label table,
+and let $K(P)$ be its unique keys. The remaining key budget is
+
+$$
+B_s=\lfloor c|U|\rfloor-|K(P)|.
+$$
+
+Candidate response pairs are ordered by ascending score. First-encountered new
+keys consume the budget; all eligible response pairs for retained keys remain.
+Pseudo-label values are **all** matching ordinary `ensemble.RMSE` rows. There
+is no median or cross-dataset reduction, so one pair can contribute several
+label rows.
+
+This distinction is visible in the return value: `history$promoted` counts
+candidate pairs, whereas accepted `history$cumulative` and the returned
+`promoted` table count label rows. Because $|U|$ counts rows but spending
+counts unique keys, duplicate prediction keys change the effective cap.
+
+```{r key-budget}
+U <- c("P1", "P2")
+promotion_cap <- 0.5
+accepted_keys <- character()
+floor(promotion_cap * length(U)) - length(unique(accepted_keys))
+```
+
+## OOF acceptance gauge
+
+For response $r$, let $H_r^{(s)}$ contain reconstructed OOF residual rows
+whose key occurs in the original labelled vector $L$. Rows from all datasets
+and duplicates retain their multiplicity. The response score is squared sample
+correlation, and the round gauge is
+
+$$
+g_s=\operatorname{mean}_r
+\{\operatorname{cor}(y,\hat y_{OOF})^2\}.
+$$
+
+Missing response-level scores are omitted; surviving responses receive equal
+weight rather than row-count weight. This gauge uses `oofEnsemble()`'s
+independent cell-local inverse-RMSE reconstruction. It is not held-out risk, a
+fully nested OOF estimate, or a guarantee of generalization gain.
+
+Let $b_{s-1}$ be the historical best gauge and
+$\varepsilon=\texttt{epsRevert}$. A candidate is rejected only when
+
+$$
+g_s<b_{s-1}-\varepsilon.
+$$
+
+Equality is accepted. On acceptance,
+$b_s=\max\{b_{s-1},g_s\}$, so the accepted fitted state may be up to
+$\varepsilon$ below the historical maximum. Returned `finalR2` is that
+historical maximum; it is not necessarily the final fitted state's gauge.
+
+## State transitions and return value
+
+The history actions are:
+
+| Action | Meaning |
+|---|---|
+| `baseline` | supervised round-zero gauge |
+| `accept` | candidate labels retained and historical best updated |
+| `empty-stop` | no eligible pair passed the strict score gate |
+| `saturation-stop` | no positive/new-key budget remained |
+| `REVERT-stop` | candidate gauge crossed the absolute reversion threshold |
+
+Exhausting `maxRounds` adds no terminal row. Reversion materially refits the
+accepted pool, but it does not recompute the restoration gauge. The function
+returns `history`, accepted `promoted` label rows (or `NULL`), `baselineR2`,
+historical-best `finalR2`, and `iterStar`; it does not return a fitted model.
+
+A minimal call has the following shape. See `?semiSupervisedPipeline` for the
+complete executable temporary-directory example and all validation and file
+contracts.
+
+```{r call-shape, eval = FALSE}
+result <- semiSupervisedPipeline(
+  .path.datasets = datasets_dir,
+  .path.work = work_dir,
+  key = "SampleID",
+  responses = "target",
+  allResponses = "target",
+  datasets = "demo",
+  methods = c("lm", "glm"),
+  seed = 2026,
+  tau = 0.1,
+  maxRounds = 1,
+  epsRevert = Inf,
+  promotionCap = 0.5
+)
+result$history
+```
+
+## Final re-emission boundary
+
+Every baseline, candidate, and restoration fit rebuilds the current round and
+calls the supervised workflow with the same seed. After the loop, the function
+rebuilds TEST files for the original prediction vector $U$ and runs a serial
+`trainRegressionModel(TRAIN = FALSE)` pass. That pass overwrites cell metric
+and response files only. It does not rerun offset, summary, optimism, or final
+aggregation helpers; those products remain from the preceding full round.
+
+This boundary matters when interpreting files after promotion. “Re-emission”
+means original-pool cell predictions, not regeneration of every summary and
+export product.
+
+## Limitations
+
+- A successful standalone teaching call uses one response. A standalone
+  multi-response call can finish its full rounds and then fail final serial
+  evaluation because other target columns remain as extra TEST-only columns.
+- Bounds are not reordered. For $a>b$, ordinary evaluation and OOF
+  reconstruction execute different nested minimum/maximum operations; neither
+  is interval projection.
+- Thresholds, caps, and tolerances are not proactively restricted to customary
+  ranges. An all-missing response gauge can become `NaN` and later comparison
+  can fail.
+- ssel establishes neither an empirical gain range nor a theorem that
+  pseudo-label promotion improves or preserves predictive performance.
+
+These are method limits, not optional fallback modes. Detailed input schemas,
+side effects, and failure timing are part of the function reference.
+
+## References

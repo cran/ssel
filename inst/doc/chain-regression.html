@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+
+
+<title>Iterative multi-response input expansion</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+
+<style type="text/css">
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
+
+
+
+<style type="text/css">
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
+</style>
+<style type="text/css" data-origin="pandoc">
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+<style type="text/css">
+
+div.csl-bib-body { }
+div.csl-entry {
+clear: both;
+}
+.hanging div.csl-entry {
+margin-left:2em;
+text-indent:-2em;
+}
+div.csl-left-margin {
+min-width:2em;
+float:left;
+}
+div.csl-right-inline {
+margin-left:2em;
+padding-left:1em;
+}
+div.csl-indent {
+margin-left: 2em;
+}
+</style>
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">Iterative multi-response input
+expansion</h1>
+
+
+
+<p><code>chainPipeline()</code> repeatedly refits the supervised helper
+family while allowing delivery values for other responses to become
+predictors. The idea is related to multi-target input-space expansion
+<span class="citation">(Spyromitros-Xioufis et al. 2016)</span>, but the
+recurrences, gates, stopping rules, and stitch described here are ssel
+package policies. The function is neither a standard regressor-chain
+estimator nor a general equation solver.</p>
+<div id="responses-row-classes-and-companion-values" class="section level2">
+<h2>Responses, row classes, and companion values</h2>
+<p>Let <span class="math inline">\(R\)</span> be the declared response
+set and <span class="math inline">\(t=0,1,\ldots\)</span> the iteration.
+Training and prediction rows have different companion sequences:</p>
+<ul>
+<li><span class="math inline">\(Y_k^{(t)}(i)\)</span> is response <span class="math inline">\(k\)</span>’s <code>p = 0.50</code>
+signed-residual-offset delivery for training row <span class="math inline">\(i\)</span>;</li>
+<li><span class="math inline">\(Z_k^{(t)}(u)\)</span> is the
+corresponding delivery for prediction row <span class="math inline">\(u\)</span>.</li>
+</ul>
+<p>Both are in response <span class="math inline">\(k\)</span>’s units
+and have already passed through the documented response bounds. They are
+not raw point predictions or raw OOF predictions. Iteration zero uses no
+companion columns. At a key present in both row classes, the training
+value takes precedence; the target response’s own companion is always
+excluded from its predictor set.</p>
+<p><code>aggregateResponses()</code> constructs these delivery values.
+<code>chainPipeline()</code> suffixes and joins them to assembled
+predictors before asking the supervised helpers to refit each
+target.</p>
+</div>
+<div id="jacobi-recurrence" class="section level2">
+<h2>Jacobi recurrence</h2>
+<p>Let <span class="math inline">\(A^{(t-1)}\subseteq R\)</span> be the
+active companion set entering iteration <span class="math inline">\(t\)</span>, and let <span class="math inline">\(j\)</span> be the target response. A Jacobi sweep
+builds one frozen augmented snapshot. Its training and prediction
+companion sets are</p>
+<p><span class="math display">\[
+C_{j,t}^{J,tr}(i)=
+\{Y_k^{(t-1)}(i):k\in A^{(t-1)}\setminus\{j\}\},
+\]</span></p>
+<p><span class="math display">\[
+C_{j,t}^{J,pred}(u)=
+\{Z_k^{(t-1)}(u):k\in A^{(t-1)}\setminus\{j\}\}.
+\]</span></p>
+<p>Every target therefore sees only values from the preceding completed
+iteration. “Jacobi” names this package update order; it does not imply
+parallel execution or a convergence theorem.</p>
+</div>
+<div id="asymmetric-gaussseidel-recurrence" class="section level2">
+<h2>Asymmetric Gauss–Seidel recurrence</h2>
+<p>Gauss–Seidel targets are processed in sorted response-name order.
+Write <span class="math inline">\(k\prec j\)</span> when <span class="math inline">\(k\)</span> precedes <span class="math inline">\(j\)</span>. Earlier targets can supply new
+training-row values to later targets in the same sweep:</p>
+<p><span class="math display">\[
+\begin{aligned}
+C_{j,t}^{GS,tr}(i)
+&amp;=\{Y_k^{(t)}(i):k\in A^{(t-1)},k\prec j\}\\
+&amp;\quad\cup
+\{Y_k^{(t-1)}(i):k\in A^{(t-1)},j\prec k\}.
+\end{aligned}
+\]</span></p>
+<p>Prediction companions do <strong>not</strong> refresh within the
+sweep:</p>
+<p><span class="math display">\[
+C_{j,t}^{GS,pred}(u)=
+\{Z_k^{(t-1)}(u):k\in A^{(t-1)}\setminus\{j\}\}.
+\]</span></p>
+<p>This asymmetry is essential. Describing both row classes with one
+Gauss–Seidel recurrence would misstate the implemented method.</p>
+</div>
+<div id="companion-importance-normalization" class="section level2">
+<h2>Companion-importance normalization</h2>
+<p><code>extractChainImportance()</code> reads individual fitted model
+files. For model cell <span class="math inline">\(c\)</span>, let <span class="math inline">\(I_{fc}\)</span> be caret’s <code>Overall</code>
+importance for feature <span class="math inline">\(f\)</span>, and let
+<span class="math inline">\(T_c=\sum_f I_{fc}\)</span>, omitting missing
+scores. ssel defines</p>
+<p><span class="math display">\[
+J_{fc}=
+\begin{cases}
+100I_{fc}/T_c, &amp; T_c&gt;0,\\
+0, &amp; T_c\le0.
+\end{cases}
+\]</span></p>
+<p>The sum is computed before companion features are filtered, and
+normalized values are rounded to four decimals. This mechanical
+normalization does not establish comparability across learner
+families.</p>
+</div>
+<div id="fixed-and-shadow-gates" class="section level2">
+<h2>Fixed and shadow gates</h2>
+<p>The fixed gate retains companion response <span class="math inline">\(k\)</span> when its non-missing mean normalized
+importance reaches the supplied percentage threshold <span class="math inline">\(\tau\)</span>:</p>
+<p><span class="math display">\[
+\overline J_k\ge\tau.
+\]</span></p>
+<p>The comparison is inclusive. The table helper demonstrates the exact
+rule:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a>importance <span class="ot">&lt;-</span> data.table<span class="sc">::</span><span class="fu">data.table</span>(</span>
+<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a>  <span class="at">feature =</span> <span class="fu">c</span>(<span class="st">&quot;beta.o&quot;</span>, <span class="st">&quot;alpha.o&quot;</span>, <span class="st">&quot;beta.o&quot;</span>, <span class="st">&quot;alpha.o&quot;</span>, <span class="st">&quot;gamma.o&quot;</span>),</span>
+<span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a>  <span class="at">normImportance =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">3</span>, <span class="cn">NA</span>, <span class="cn">NA</span>)</span>
+<span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a>)</span>
+<span id="cb1-5"><a href="#cb1-5" tabindex="-1"></a><span class="fu">activeByImportance</span>(importance, <span class="at">suffix =</span> <span class="st">&quot;.o&quot;</span>, <span class="at">thresh =</span> <span class="dv">2</span>)</span>
+<span id="cb1-6"><a href="#cb1-6" tabindex="-1"></a><span class="co">#&gt; [1] &quot;beta&quot;  &quot;alpha&quot;</span></span></code></pre></div>
+<p>The shadow gate compares each companion row with the same row’s
+single shadow score. A response passes only when strict successes are
+more than half of all its rows. Equality fails, and a missing shadow
+remains in the denominator as a failure.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a>importance <span class="ot">&lt;-</span> data.table<span class="sc">::</span><span class="fu">data.table</span>(</span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a>  <span class="at">feature =</span> <span class="fu">c</span>(<span class="st">&quot;alpha.o&quot;</span>, <span class="st">&quot;alpha.o&quot;</span>, <span class="st">&quot;alpha.o&quot;</span>,</span>
+<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a>              <span class="st">&quot;beta.o&quot;</span>, <span class="st">&quot;beta.o&quot;</span>, <span class="st">&quot;gamma.o&quot;</span>, <span class="st">&quot;gamma.o&quot;</span>),</span>
+<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a>  <span class="at">normImportance =</span> <span class="fu">c</span>(<span class="dv">2</span>, <span class="dv">3</span>, <span class="dv">0</span>, <span class="dv">2</span>, <span class="dv">0</span>, <span class="dv">2</span>, <span class="dv">2</span>),</span>
+<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a>  <span class="at">shadowImportance =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">1</span>, <span class="dv">1</span>, <span class="dv">1</span>, <span class="dv">1</span>, <span class="dv">1</span>, <span class="cn">NA</span>)</span>
+<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a>)</span>
+<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a><span class="fu">activeByShadow</span>(importance, <span class="at">suffix =</span> <span class="st">&quot;.o&quot;</span>)</span>
+<span id="cb2-8"><a href="#cb2-8" tabindex="-1"></a><span class="co">#&gt; [1] &quot;alpha&quot;</span></span></code></pre></div>
+<p>This is ssel’s strict-majority, single-shadow policy. It does not
+implement Boruta’s iterative random probes or statistical tests <span class="citation">(Kursa and Rudnicki 2010)</span>.</p>
+</div>
+<div id="active-set-history" class="section level2">
+<h2>Active-set history</h2>
+<p>Let <span class="math inline">\(G_t\)</span> be the raw gate result.
+The pipeline first applies the fallback</p>
+<p><span class="math display">\[
+\widetilde G_t=
+\begin{cases}
+R, &amp; G_t=\varnothing,\\
+G_t, &amp; \text{otherwise}.
+\end{cases}
+\]</span></p>
+<p>With history width <span class="math inline">\(K=\texttt{chainStable}\)</span>, once enough
+preceding returned sets exist it defines</p>
+<p><span class="math display">\[
+A_t=\widetilde G_t\cap A_{t-1}\cap\cdots\cap A_{t-K+1}.
+\]</span></p>
+<p>Those preceding sets may already contain older intersections. An
+empty intersection is not replaced by <span class="math inline">\(R\)</span> a second time. The standalone
+<code>computeActiveByImportance()</code> helper performs only its
+documented fixed-gate intersection; it does not implement the pipeline’s
+empty-result fallback.</p>
+</div>
+<div id="change-score-and-stopping-policy" class="section level2">
+<h2>Change score and stopping policy</h2>
+<p>Consecutive training delivery tables are compared by current row and
+response column position, not by a key join. Compatible ordering is
+therefore a precondition. ssel defines</p>
+<p><span class="math display">\[
+\delta_t=\max_{i,r}
+\frac{|Y_r^{(t)}(i)-Y_r^{(t-1)}(i)|}
+     {\max\{1,|Y_r^{(t-1)}(i)|\}},
+\]</span></p>
+<p>removing missing cells only in the final maximum. Although
+dimensionless, <span class="math inline">\(\delta_t\)</span> is not
+invariant to response-unit rescaling or translation because of the fixed
+floor 1. It is a stopping heuristic, not evidence that a fixed point has
+been reached.</p>
+<p>For metric history, ssel retains the first minimum-RMSE
+<code>ensemble.RMSE</code> dataset row for each response and uses that
+row’s squared sample correlation <span class="math inline">\(R^2_{r,t}\)</span>. The iteration mean is</p>
+<p><span class="math display">\[
+\overline{R^2}_t=|R|^{-1}\sum_rR^2_{r,t}.
+\]</span></p>
+<p>Only a strict increase over the accepted historical mean resets the
+non-improvement strike. A separate divergence strike increments only
+when <span class="math inline">\(\delta_t&gt;\delta_{t-1}\)</span>.
+After current products are written, stop checks run in this order: <span class="math inline">\(\delta_t&lt;\texttt{tol}\)</span>, divergence
+strikes reaching <code>patience</code>, then non-improvement strikes
+reaching <code>patience</code>.</p>
+<p>Resume restores selected file state but resets both strike counters
+and active history. Its first resumed active set is <code>NULL</code>,
+so all available companions enter that first resumed augmentation.
+<code>maxIter</code> is additional work, not an absolute lifetime cap.
+The full file prerequisites and partial-write behavior are documented on
+<code>?chainPipeline</code>.</p>
+</div>
+<div id="per-response-iteration-stitch" class="section level2">
+<h2>Per-response iteration stitch</h2>
+<p>At completion, response <span class="math inline">\(r\)</span>
+selects</p>
+<p><span class="math display">\[
+t_r^\star=\operatorname*{first\,argmax}_{t\in\{0,\ldots,T\}}R^2_{r,t}.
+\]</span></p>
+<p>Iteration zero is eligible. Baseline scores are unrounded; later
+candidates use stored four-decimal scores, so rounding can affect the
+choice. The final <code>Yo.csv</code> and the five current summary
+products are replaced response by response from selected snapshots.
+Models, split files, cell files, <code>Y.csv</code>, <code>X.csv</code>,
+and <code>Xo.csv</code> remain from the last fitted iteration. The
+resulting installation can therefore contain stitched delivery summaries
+alongside a different last-fitted model state; this is an explicit
+product boundary, not a recommendation to regenerate models.</p>
+</div>
+<div id="interpretation-and-limits" class="section level2">
+<h2>Interpretation and limits</h2>
+<p>The recurrences describe exactly which companion values may enter a
+fit. The gates are deterministic package policies over supplied
+importance tables, and the stopping criteria are operational heuristics.
+None establishes an optimal response order, a calibrated importance
+threshold, convergence of an equation solver, or superiority of one
+sweep. For a complete, temporary-directory function example and all side
+effects, see <code>?chainPipeline</code>.</p>
+</div>
+<div id="references" class="section level2 unnumbered">
+<h2 class="unnumbered">References</h2>
+<div id="refs" class="references csl-bib-body hanging-indent">
+<div id="ref-kursa2010boruta" class="csl-entry">
+Kursa, Miron B., and Witold R. Rudnicki. 2010. <span>“Feature Selection
+with the <span>Boruta</span> Package.”</span> <em>Journal of Statistical
+Software</em> 36 (11): 1–13. <a href="https://doi.org/10.18637/jss.v036.i11">https://doi.org/10.18637/jss.v036.i11</a>.
+</div>
+<div id="ref-spyromitros2016chains" class="csl-entry">
+Spyromitros-Xioufis, Eleftherios, Grigorios Tsoumakas, William Groves,
+and Ioannis Vlahavas. 2016. <span>“Multi-Target Regression via Input
+Space Expansion: Treating Targets as Inputs.”</span> <em>Machine
+Learning</em> 104 (1): 55–98. <a href="https://doi.org/10.1007/s10994-016-5546-z">https://doi.org/10.1007/s10994-016-5546-z</a>.
+</div>
+</div>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+
+
+<title>Range-ratio pseudo-label promotion</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+
+<style type="text/css">
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
+
+
+
+<style type="text/css">
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
+</style>
+<style type="text/css" data-origin="pandoc">
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+<style type="text/css">
+
+div.csl-bib-body { }
+div.csl-entry {
+clear: both;
+}
+.hanging div.csl-entry {
+margin-left:2em;
+text-indent:-2em;
+}
+div.csl-left-margin {
+min-width:2em;
+float:left;
+}
+div.csl-right-inline {
+margin-left:2em;
+padding-left:1em;
+}
+div.csl-indent {
+margin-left: 2em;
+}
+</style>
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">Range-ratio pseudo-label promotion</h1>
+
+
+
+<p><code>semiSupervisedPipeline()</code> implements ssel’s row-promotion
+layer. It promotes selected prediction rows as pseudo-labels, refits the
+supervised helper family, and uses a separate OOF gauge to accept or
+revert a candidate round. Pseudo-labeling is a broad semi-supervised
+pattern <span class="citation">(Van Engelen and Hoos 2020)</span>, but
+the range ratio, budget, gauge, and state transitions below are
+package-defined policies. They are not tri-training, co-training
+regression, held-out validation, or calibrated predictive
+uncertainty.</p>
+<div id="symbols-and-input-pools" class="section level2">
+<h2>Symbols and input pools</h2>
+<p>Let <span class="math inline">\(s=0,1,\ldots\)</span> index rounds,
+<span class="math inline">\(r\)</span> a response, <span class="math inline">\(u\)</span> a prediction-row key, <span class="math inline">\(m\)</span> a learner, and <span class="math inline">\(d\)</span> a dataset. The first retained input CSV
+alone defines two ordered row-level vectors:</p>
+<p><span class="math display">\[
+L=(u:\texttt{set}=&quot;train&quot;).
+\]</span></p>
+<p><span class="math display">\[
+U=(u:\texttt{set}=&quot;predict&quot;).
+\]</span></p>
+<p>These are vectors, not mathematical sets: order, duplicates, and
+missing keys remain. Consequently, <span class="math inline">\(|U|=\operatorname{length}(U)\)</span> counts rows,
+while a later promotion budget spends unique keys. Other input CSVs are
+not checked to have matching pools.</p>
+<p><code>allResponses</code> should name every response column so
+non-target responses are removed before fitting. Missing names are
+ignored; an omitted response can therefore remain and be numerically
+coerced as a predictor.</p>
+</div>
+<div id="optional-augmented-data-warm-start" class="section level2">
+<h2>Optional augmented-data warm start</h2>
+<p>When <code>.path.iter</code> is supplied, exactly one target response
+is required. The function reads lexically ordered
+<code>metrics_&lt;integer&gt;.csv</code> files, keeps that response’s
+<code>ensemble.RMSE</code> rows, and chooses the first row attaining the
+global maximum <span class="math inline">\(R^2\)</span>. Its iteration
+number selects one <code>datasets_&lt;iterStar&gt;</code> directory.</p>
+<p>This is an augmented-dataset snapshot selection. It does not consume
+a stitched model, rerun a chain sweep, or provide an iteration-zero
+fallback. Without <code>.path.iter</code>, <code>iterStar</code> in the
+return value is <code>NA_integer_</code>.</p>
+</div>
+<div id="range-ratio-promotion-score" class="section level2">
+<h2>Range-ratio promotion score</h2>
+<p>For original prediction key <span class="math inline">\(u\)</span>,
+response <span class="math inline">\(r\)</span>, and round <span class="math inline">\(s\)</span>, collect all available projected
+ordinary base-method predictions across configured datasets:</p>
+<p><span class="math display">\[
+A_{ur}^{(s)}=
+\{f_{mdr}^{(s)}(u)\}_{\mathrm{available}}.
+\]</span></p>
+<p><span class="math display">\[
+S_{ur}^{(s)}=\max A_{ur}^{(s)}-\min A_{ur}^{(s)}.
+\]</span></p>
+<p>A pair is eligible only when at least two distinct method names are
+available; multiple datasets from one method do not satisfy this
+condition. Let <span class="math inline">\(\bar
+f_{ur,last}^{(s)}(u)\)</span> be the last matching ordinary
+<code>ensemble.RMSE</code> value in response-file concatenation and
+update order. ssel defines</p>
+<p><span class="math display">\[
+D_{ur}^{(s)}=
+\frac{S_{ur}^{(s)}}
+     {\max\{1,|\bar f_{ur,last}^{(s)}(u)|\}}.
+\]</span></p>
+<p>Promotion uses the strict comparison <span class="math inline">\(D_{ur}^{(s)}&lt;\tau\)</span>. Equal finite base
+predictions give <span class="math inline">\(D=0\)</span>; a missing
+member makes the score missing. The score is dimensionless, but the
+fixed denominator floor makes it non-invariant to response rescaling and
+translation. It is neither a probability nor an uncertainty
+calibration.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a>base_predictions <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="at">lm =</span> <span class="dv">10</span>, <span class="at">glm =</span> <span class="dv">11</span>)</span>
+<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a>ensemble_last <span class="ot">&lt;-</span> <span class="fl">10.5</span></span>
+<span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a>score <span class="ot">&lt;-</span> <span class="fu">diff</span>(<span class="fu">range</span>(base_predictions)) <span class="sc">/</span> <span class="fu">max</span>(<span class="dv">1</span>, <span class="fu">abs</span>(ensemble_last))</span>
+<span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a><span class="fu">c</span>(<span class="at">score =</span> score, <span class="at">promotes_at_tau_0.1 =</span> score <span class="sc">&lt;</span> <span class="fl">0.1</span>)</span>
+<span id="cb1-5"><a href="#cb1-5" tabindex="-1"></a><span class="co">#&gt;               score promotes_at_tau_0.1 </span></span>
+<span id="cb1-6"><a href="#cb1-6" tabindex="-1"></a><span class="co">#&gt;           0.0952381           1.0000000</span></span></code></pre></div>
+</div>
+<div id="key-budget-and-pseudo-label-rows" class="section level2">
+<h2>Key budget and pseudo-label rows</h2>
+<p>Let <span class="math inline">\(c=\texttt{promotionCap}\)</span>, let
+<span class="math inline">\(P\)</span> be the accepted pseudo-label
+table, and let <span class="math inline">\(K(P)\)</span> be its unique
+keys. The remaining key budget is</p>
+<p><span class="math display">\[
+B_s=\lfloor c|U|\rfloor-|K(P)|.
+\]</span></p>
+<p>Candidate response pairs are ordered by ascending score.
+First-encountered new keys consume the budget; all eligible response
+pairs for retained keys remain. Pseudo-label values are
+<strong>all</strong> matching ordinary <code>ensemble.RMSE</code> rows.
+There is no median or cross-dataset reduction, so one pair can
+contribute several label rows.</p>
+<p>This distinction is visible in the return value:
+<code>history$promoted</code> counts candidate pairs, whereas accepted
+<code>history$cumulative</code> and the returned <code>promoted</code>
+table count label rows. Because <span class="math inline">\(|U|\)</span>
+counts rows but spending counts unique keys, duplicate prediction keys
+change the effective cap.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a>U <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">&quot;P1&quot;</span>, <span class="st">&quot;P2&quot;</span>)</span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a>promotion_cap <span class="ot">&lt;-</span> <span class="fl">0.5</span></span>
+<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a>accepted_keys <span class="ot">&lt;-</span> <span class="fu">character</span>()</span>
+<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a><span class="fu">floor</span>(promotion_cap <span class="sc">*</span> <span class="fu">length</span>(U)) <span class="sc">-</span> <span class="fu">length</span>(<span class="fu">unique</span>(accepted_keys))</span>
+<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a><span class="co">#&gt; [1] 1</span></span></code></pre></div>
+</div>
+<div id="oof-acceptance-gauge" class="section level2">
+<h2>OOF acceptance gauge</h2>
+<p>For response <span class="math inline">\(r\)</span>, let <span class="math inline">\(H_r^{(s)}\)</span> contain reconstructed OOF
+residual rows whose key occurs in the original labelled vector <span class="math inline">\(L\)</span>. Rows from all datasets and duplicates
+retain their multiplicity. The response score is squared sample
+correlation, and the round gauge is</p>
+<p><span class="math display">\[
+g_s=\operatorname{mean}_r
+\{\operatorname{cor}(y,\hat y_{OOF})^2\}.
+\]</span></p>
+<p>Missing response-level scores are omitted; surviving responses
+receive equal weight rather than row-count weight. This gauge uses
+<code>oofEnsemble()</code>’s independent cell-local inverse-RMSE
+reconstruction. It is not held-out risk, a fully nested OOF estimate, or
+a guarantee of generalization gain.</p>
+<p>Let <span class="math inline">\(b_{s-1}\)</span> be the historical
+best gauge and <span class="math inline">\(\varepsilon=\texttt{epsRevert}\)</span>. A
+candidate is rejected only when</p>
+<p><span class="math display">\[
+g_s&lt;b_{s-1}-\varepsilon.
+\]</span></p>
+<p>Equality is accepted. On acceptance, <span class="math inline">\(b_s=\max\{b_{s-1},g_s\}\)</span>, so the accepted
+fitted state may be up to <span class="math inline">\(\varepsilon\)</span> below the historical maximum.
+Returned <code>finalR2</code> is that historical maximum; it is not
+necessarily the final fitted state’s gauge.</p>
+</div>
+<div id="state-transitions-and-return-value" class="section level2">
+<h2>State transitions and return value</h2>
+<p>The history actions are:</p>
+<table>
+<colgroup>
+<col width="50%" />
+<col width="50%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Action</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>baseline</code></td>
+<td>supervised round-zero gauge</td>
+</tr>
+<tr class="even">
+<td><code>accept</code></td>
+<td>candidate labels retained and historical best updated</td>
+</tr>
+<tr class="odd">
+<td><code>empty-stop</code></td>
+<td>no eligible pair passed the strict score gate</td>
+</tr>
+<tr class="even">
+<td><code>saturation-stop</code></td>
+<td>no positive/new-key budget remained</td>
+</tr>
+<tr class="odd">
+<td><code>REVERT-stop</code></td>
+<td>candidate gauge crossed the absolute reversion threshold</td>
+</tr>
+</tbody>
+</table>
+<p>Exhausting <code>maxRounds</code> adds no terminal row. Reversion
+materially refits the accepted pool, but it does not recompute the
+restoration gauge. The function returns <code>history</code>, accepted
+<code>promoted</code> label rows (or <code>NULL</code>),
+<code>baselineR2</code>, historical-best <code>finalR2</code>, and
+<code>iterStar</code>; it does not return a fitted model.</p>
+<p>A minimal call has the following shape. See
+<code>?semiSupervisedPipeline</code> for the complete executable
+temporary-directory example and all validation and file contracts.</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a>result <span class="ot">&lt;-</span> <span class="fu">semiSupervisedPipeline</span>(</span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a>  <span class="at">.path.datasets =</span> datasets_dir,</span>
+<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a>  <span class="at">.path.work =</span> work_dir,</span>
+<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a>  <span class="at">key =</span> <span class="st">&quot;SampleID&quot;</span>,</span>
+<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a>  <span class="at">responses =</span> <span class="st">&quot;target&quot;</span>,</span>
+<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a>  <span class="at">allResponses =</span> <span class="st">&quot;target&quot;</span>,</span>
+<span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a>  <span class="at">datasets =</span> <span class="st">&quot;demo&quot;</span>,</span>
+<span id="cb3-8"><a href="#cb3-8" tabindex="-1"></a>  <span class="at">methods =</span> <span class="fu">c</span>(<span class="st">&quot;lm&quot;</span>, <span class="st">&quot;glm&quot;</span>),</span>
+<span id="cb3-9"><a href="#cb3-9" tabindex="-1"></a>  <span class="at">seed =</span> <span class="dv">2026</span>,</span>
+<span id="cb3-10"><a href="#cb3-10" tabindex="-1"></a>  <span class="at">tau =</span> <span class="fl">0.1</span>,</span>
+<span id="cb3-11"><a href="#cb3-11" tabindex="-1"></a>  <span class="at">maxRounds =</span> <span class="dv">1</span>,</span>
+<span id="cb3-12"><a href="#cb3-12" tabindex="-1"></a>  <span class="at">epsRevert =</span> <span class="cn">Inf</span>,</span>
+<span id="cb3-13"><a href="#cb3-13" tabindex="-1"></a>  <span class="at">promotionCap =</span> <span class="fl">0.5</span></span>
+<span id="cb3-14"><a href="#cb3-14" tabindex="-1"></a>)</span>
+<span id="cb3-15"><a href="#cb3-15" tabindex="-1"></a>result<span class="sc">$</span>history</span></code></pre></div>
+</div>
+<div id="final-re-emission-boundary" class="section level2">
+<h2>Final re-emission boundary</h2>
+<p>Every baseline, candidate, and restoration fit rebuilds the current
+round and calls the supervised workflow with the same seed. After the
+loop, the function rebuilds TEST files for the original prediction
+vector <span class="math inline">\(U\)</span> and runs a serial
+<code>trainRegressionModel(TRAIN = FALSE)</code> pass. That pass
+overwrites cell metric and response files only. It does not rerun
+offset, summary, optimism, or final aggregation helpers; those products
+remain from the preceding full round.</p>
+<p>This boundary matters when interpreting files after promotion.
+“Re-emission” means original-pool cell predictions, not regeneration of
+every summary and export product.</p>
+</div>
+<div id="limitations" class="section level2">
+<h2>Limitations</h2>
+<ul>
+<li>A successful standalone teaching call uses one response. A
+standalone multi-response call can finish its full rounds and then fail
+final serial evaluation because other target columns remain as extra
+TEST-only columns.</li>
+<li>Bounds are not reordered. For <span class="math inline">\(a&gt;b\)</span>, ordinary evaluation and OOF
+reconstruction execute different nested minimum/maximum operations;
+neither is interval projection.</li>
+<li>Thresholds, caps, and tolerances are not proactively restricted to
+customary ranges. An all-missing response gauge can become
+<code>NaN</code> and later comparison can fail.</li>
+<li>ssel establishes neither an empirical gain range nor a theorem that
+pseudo-label promotion improves or preserves predictive
+performance.</li>
+</ul>
+<p>These are method limits, not optional fallback modes. Detailed input
+schemas, side effects, and failure timing are part of the function
+reference.</p>
+</div>
+<div id="references" class="section level2 unnumbered">
+<h2 class="unnumbered">References</h2>
+<div id="refs" class="references csl-bib-body hanging-indent">
+<div id="ref-vanengelen2020survey" class="csl-entry">
+Van Engelen, Jesper E., and Holger H. Hoos. 2020. <span>“A Survey on
+Semi-Supervised Learning.”</span> <em>Machine Learning</em> 109 (2):
+373–440. <a href="https://doi.org/10.1007/s10994-019-05855-6">https://doi.org/10.1007/s10994-019-05855-6</a>.
+</div>
+</div>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,229 @@
+---
+title: "Iterative multi-response input expansion"
+output: rmarkdown::html_vignette
+bibliography: ../inst/REFERENCES.bib
+vignette: >
+  %\VignetteIndexEntry{Iterative multi-response input expansion}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+library(ssel)
+```
+
+`chainPipeline()` repeatedly refits the supervised helper family while
+allowing delivery values for other responses to become predictors. The idea is
+related to multi-target input-space expansion [@spyromitros2016chains], but the
+recurrences, gates, stopping rules, and stitch described here are ssel package
+policies. The function is neither a standard regressor-chain estimator nor a
+general equation solver.
+
+## Responses, row classes, and companion values
+
+Let $R$ be the declared response set and $t=0,1,\ldots$ the
+iteration. Training and prediction rows have different companion sequences:
+
+- $Y_k^{(t)}(i)$ is response $k$'s `p = 0.50` signed-residual-offset
+  delivery for training row $i$;
+- $Z_k^{(t)}(u)$ is the corresponding delivery for prediction row $u$.
+
+Both are in response $k$'s units and have already passed through the
+documented response bounds. They are not raw point predictions or raw OOF
+predictions. Iteration zero uses no companion columns. At a key present in
+both row classes, the training value takes precedence; the target response's
+own companion is always excluded from its predictor set.
+
+`aggregateResponses()` constructs these delivery values. `chainPipeline()`
+suffixes and joins them to assembled predictors before asking the supervised
+helpers to refit each target.
+
+## Jacobi recurrence
+
+Let $A^{(t-1)}\subseteq R$ be the active companion set entering
+iteration $t$, and let $j$ be the target response. A Jacobi sweep builds
+one frozen augmented snapshot. Its training and prediction companion sets are
+
+$$
+C_{j,t}^{J,tr}(i)=
+\{Y_k^{(t-1)}(i):k\in A^{(t-1)}\setminus\{j\}\},
+$$
+
+$$
+C_{j,t}^{J,pred}(u)=
+\{Z_k^{(t-1)}(u):k\in A^{(t-1)}\setminus\{j\}\}.
+$$
+
+Every target therefore sees only values from the preceding completed
+iteration. “Jacobi” names this package update order; it does not imply
+parallel execution or a convergence theorem.
+
+## Asymmetric Gauss--Seidel recurrence
+
+Gauss--Seidel targets are processed in sorted response-name order. Write
+$k\prec j$ when $k$ precedes $j$. Earlier targets can supply new
+training-row values to later targets in the same sweep:
+
+$$
+\begin{aligned}
+C_{j,t}^{GS,tr}(i)
+&=\{Y_k^{(t)}(i):k\in A^{(t-1)},k\prec j\}\\
+&\quad\cup
+\{Y_k^{(t-1)}(i):k\in A^{(t-1)},j\prec k\}.
+\end{aligned}
+$$
+
+Prediction companions do **not** refresh within the sweep:
+
+$$
+C_{j,t}^{GS,pred}(u)=
+\{Z_k^{(t-1)}(u):k\in A^{(t-1)}\setminus\{j\}\}.
+$$
+
+This asymmetry is essential. Describing both row classes with one
+Gauss--Seidel recurrence would misstate the implemented method.
+
+## Companion-importance normalization
+
+`extractChainImportance()` reads individual fitted model files. For model cell
+$c$, let $I_{fc}$ be caret's `Overall` importance for feature $f$, and
+let $T_c=\sum_f I_{fc}$, omitting missing scores. ssel defines
+
+$$
+J_{fc}=
+\begin{cases}
+100I_{fc}/T_c, & T_c>0,\\
+0, & T_c\le0.
+\end{cases}
+$$
+
+The sum is computed before companion features are filtered, and normalized
+values are rounded to four decimals. This mechanical normalization does not
+establish comparability across learner families.
+
+## Fixed and shadow gates
+
+The fixed gate retains companion response $k$ when its non-missing mean
+normalized importance reaches the supplied percentage threshold $\tau$:
+
+$$
+\overline J_k\ge\tau.
+$$
+
+The comparison is inclusive. The table helper demonstrates the exact rule:
+
+```{r fixed-gate}
+importance <- data.table::data.table(
+  feature = c("beta.o", "alpha.o", "beta.o", "alpha.o", "gamma.o"),
+  normImportance = c(1, 2, 3, NA, NA)
+)
+activeByImportance(importance, suffix = ".o", thresh = 2)
+```
+
+The shadow gate compares each companion row with the same row's single shadow
+score. A response passes only when strict successes are more than half of all
+its rows. Equality fails, and a missing shadow remains in the denominator as a
+failure.
+
+```{r shadow-gate}
+importance <- data.table::data.table(
+  feature = c("alpha.o", "alpha.o", "alpha.o",
+              "beta.o", "beta.o", "gamma.o", "gamma.o"),
+  normImportance = c(2, 3, 0, 2, 0, 2, 2),
+  shadowImportance = c(1, 1, 1, 1, 1, 1, NA)
+)
+activeByShadow(importance, suffix = ".o")
+```
+
+This is ssel's strict-majority, single-shadow policy. It does not implement
+Boruta's iterative random probes or statistical tests [@kursa2010boruta].
+
+## Active-set history
+
+Let $G_t$ be the raw gate result. The pipeline first applies the fallback
+
+$$
+\widetilde G_t=
+\begin{cases}
+R, & G_t=\varnothing,\\
+G_t, & \text{otherwise}.
+\end{cases}
+$$
+
+With history width $K=\texttt{chainStable}$, once enough preceding returned
+sets exist it defines
+
+$$
+A_t=\widetilde G_t\cap A_{t-1}\cap\cdots\cap A_{t-K+1}.
+$$
+
+Those preceding sets may already contain older intersections. An empty
+intersection is not replaced by $R$ a second time. The standalone
+`computeActiveByImportance()` helper performs only its documented fixed-gate
+intersection; it does not implement the pipeline's empty-result fallback.
+
+## Change score and stopping policy
+
+Consecutive training delivery tables are compared by current row and response
+column position, not by a key join. Compatible ordering is therefore a
+precondition. ssel defines
+
+$$
+\delta_t=\max_{i,r}
+\frac{|Y_r^{(t)}(i)-Y_r^{(t-1)}(i)|}
+     {\max\{1,|Y_r^{(t-1)}(i)|\}},
+$$
+
+removing missing cells only in the final maximum. Although dimensionless,
+$\delta_t$ is not invariant to response-unit rescaling or translation because
+of the fixed floor 1. It is a stopping heuristic, not evidence that a fixed
+point has been reached.
+
+For metric history, ssel retains the first minimum-RMSE `ensemble.RMSE` dataset
+row for each response and uses that row's squared sample correlation
+$R^2_{r,t}$. The iteration mean is
+
+$$
+\overline{R^2}_t=|R|^{-1}\sum_rR^2_{r,t}.
+$$
+
+Only a strict increase over the accepted historical mean resets the
+non-improvement strike. A separate divergence strike increments only when
+$\delta_t>\delta_{t-1}$. After current products are written, stop checks run in
+this order: $\delta_t<\texttt{tol}$, divergence strikes reaching `patience`,
+then non-improvement strikes reaching `patience`.
+
+Resume restores selected file state but resets both strike counters and active
+history. Its first resumed active set is `NULL`, so all available companions
+enter that first resumed augmentation. `maxIter` is additional work, not an
+absolute lifetime cap. The full file prerequisites and partial-write behavior
+are documented on `?chainPipeline`.
+
+## Per-response iteration stitch
+
+At completion, response $r$ selects
+
+$$
+t_r^\star=\operatorname*{first\,argmax}_{t\in\{0,\ldots,T\}}R^2_{r,t}.
+$$
+
+Iteration zero is eligible. Baseline scores are unrounded; later candidates
+use stored four-decimal scores, so rounding can affect the choice. The final
+`Yo.csv` and the five current summary products are replaced response by
+response from selected snapshots. Models, split files, cell files, `Y.csv`,
+`X.csv`, and `Xo.csv` remain from the last fitted iteration. The resulting
+installation can therefore contain stitched delivery summaries alongside a
+different last-fitted model state; this is an explicit product boundary, not a
+recommendation to regenerate models.
+
+## Interpretation and limits
+
+The recurrences describe exactly which companion values may enter a fit. The
+gates are deterministic package policies over supplied importance tables, and
+the stopping criteria are operational heuristics. None establishes an optimal
+response order, a calibrated importance threshold, convergence of an equation
+solver, or superiority of one sweep. For a complete, temporary-directory
+function example and all side effects, see `?chainPipeline`.
+
+## References

@@ -1,0 +1,26 @@
+test_that("logging uses R conditions and respects quiet mode", {
+  Options <- options(aR.quiet = FALSE, aR.verbose = FALSE)
+  on.exit(options(Options), add = TRUE)
+
+  expect_message(.INFO("progress"), "progress")
+  expect_message(.OK("done"), "done")
+  expect_message(.HEAD("section"), "section")
+  expect_message(.SUB("step"), "step")
+  expect_message(.KV("key", "value"), "key:")
+  expect_message(.DEBUG("hidden"), NA)
+  expect_warning(.WARN("recoverable"), "recoverable")
+  expect_error(.ERROR("fatal"), "fatal")
+  expect_output(suppressMessages(.INFO("progress")), NA)
+  expect_output(suppressWarnings(.WARN("recoverable")), NA)
+
+  options(aR.verbose = TRUE)
+  expect_message(.DEBUG("visible"), "visible")
+
+  options(aR.quiet = TRUE)
+  expect_message(.INFO("hidden"), NA)
+  expect_message(.OK("hidden"), NA)
+  expect_message(.HEAD("hidden"), NA)
+  expect_message(.SUB("hidden"), NA)
+  expect_message(.KV("hidden", "hidden"), NA)
+  expect_message(.DEBUG("hidden"), NA)
+})

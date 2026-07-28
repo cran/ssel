@@ -1,0 +1,264 @@
+---
+title: "Getting started with ssel"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Getting started with ssel}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", error = FALSE)
+library(ssel)
+```
+
+Prepare numeric columns and create response-specific model input files from one
+small assembled CSV.
+
+Use this vignette if you already have a rectangular dataset and want to inspect
+numeric text before materializing training and prediction files. You need basic
+familiarity with R data frames and must know the units of your own columns. By
+the end, you will have one TRAIN file, one TEST file, and one aligned training-ID
+file that you can inspect directly.
+
+## Three questions, three helpers
+
+The helpers answer different questions in sequence.
+
+| Helper | Question | Result |
+|---|---|---|
+| `which.nonnum()` | Which present values fail direct base R numeric coercion? | One-based positions to inspect. |
+| `toNumeric()` | Which values fit the package's bounded separator grammar? | A numeric vector; unsupported text becomes missing. |
+| `buildDataset()` | How do I materialize an assembled CSV for one or more responses? | Per-response TRAIN, TEST, and TRAIN-ID CSV files. |
+
+`which.nonnum()` is a diagnostic for direct coercion, so it intentionally flags
+localized values such as comma decimals. `toNumeric()` handles the package's
+supported separator forms. `buildDataset()` applies the same normalization to a
+whole character column only when all of its non-missing values convert.
+
+## Minimum data contract
+
+Each assembled CSV represents one dataset. Its basename becomes part of every
+output filename.
+
+| Role | Minimum requirement | Your responsibility |
+|---|---|---|
+| Key | One column named by `KEY`. | Supply stable identifiers; uniqueness and missingness are not checked. |
+| Row role | One column named by `SET_COL`; `"train"` selects training rows and every other non-missing value selects prediction rows. | Do not supply missing row roles. |
+| Predictors | Numeric columns or character columns that consistently use a supported numeric format. | Use one known unit per column and resolve ambiguous or invalid text first. |
+| Response | Columns selected by `Y.PATTERN` and numeric after cleaning. | Supply response values for training rows; prediction rows may leave them missing. |
+
+The input and output directories must already exist. `buildDataset()` preserves
+numeric magnitudes; it does not infer, convert, or store units. Descriptive
+column names are useful, but they do not replace a documented unit convention.
+
+## Diagnose and normalize numeric text
+
+Suppose a source column contains a grouped number, a comma decimal, one invalid
+label, and one missing value.
+
+```{r diagnose}
+RawValues <- c(
+  "1 250",
+  "2,50",
+  "not recorded",
+  NA
+)
+Bad <- which.nonnum(RawValues)
+
+Diagnostic <- data.frame(
+  position = Bad,
+  value = RawValues[Bad]
+)
+Diagnostic
+
+Normalized <- data.frame(
+  raw = RawValues,
+  numeric = toNumeric(RawValues)
+)
+Normalized
+```
+
+Direct coercion rejects the first three present values. The bounded normalization step
+recovers `1250` and `2.5`; the unsupported label becomes `NA`, and the original
+missing value remains missing. Inspect newly introduced missing values before
+using the column as a predictor or response.
+
+## Create the three model-input products
+
+The example uses mm for `thickness_mm`, percent for `moisture_pct`, and MPa for
+`strength_mpa`. Those units are an input convention: ssel does
+not convert them.
+
+```{r assemble}
+Root <- tempfile("ssel-quickstart-")
+InputDir <- file.path(
+  Root,
+  "assembled"
+)
+OutputDir <- file.path(
+  Root,
+  "splits"
+)
+dir.create(InputDir, recursive = TRUE)
+dir.create(OutputDir)
+
+SampleID <- c(
+  "S1", "S2", "P1", "P2"
+)
+RowRole <- c(
+  "train", "train",
+  "predict", "predict"
+)
+ThicknessMm <- c(
+  "1 250", "1 500",
+  "1 750", "2 000"
+)
+MoisturePct <- c(
+  "2,50", "3,00",
+  "3,50", "4,00"
+)
+StrengthMpa <- c(10, 12, NA, NA)
+
+Assembled <- data.frame(
+  SampleID,
+  set = RowRole,
+  thickness_mm = ThicknessMm,
+  moisture_pct = MoisturePct,
+  strength_mpa = StrengthMpa
+)
+
+InputFile <- file.path(
+  InputDir,
+  "specimens.csv"
+)
+
+utils::write.csv(
+  Assembled,
+  InputFile,
+  row.names = FALSE,
+  na = ""
+)
+
+buildDataset(
+  .path.input = InputDir,
+  .path.train = OutputDir,
+  Y.PATTERN = "^strength_mpa$",
+  KEY = "SampleID",
+  features = c(
+    "thickness_mm",
+    "moisture_pct"
+  ),
+  SET_COL = "set"
+)
+
+TestFile <- list.files(
+  OutputDir,
+  pattern = "_TEST[.]csv$"
+)
+TrainIDFile <- list.files(
+  OutputDir,
+  pattern = "_TRAIN_ids[.]csv$"
+)
+TrainFile <- list.files(
+  OutputDir,
+  pattern = "_TRAIN[.]csv$"
+)
+
+Products <- data.frame(
+  product = c(
+    "TEST",
+    "TRAIN-ID",
+    "TRAIN"
+  ),
+  filename = c(
+    TestFile,
+    TrainIDFile,
+    TrainFile
+  )
+)
+
+knitr::kable(
+  Products,
+  caption = "Files created"
+)
+```
+
+The response name (`strength_mpa`) and dataset basename (`specimens`) determine
+the three filenames. Read each product to see its role.
+
+```{r inspect}
+TrainPath <- file.path(
+  OutputDir,
+  TrainFile
+)
+TestPath <- file.path(
+  OutputDir,
+  TestFile
+)
+TrainIDPath <- file.path(
+  OutputDir,
+  TrainIDFile
+)
+
+Train <- utils::read.csv(
+  TrainPath
+)
+Test <- utils::read.csv(
+  TestPath
+)
+TrainIDs <- utils::read.csv(
+  TrainIDPath
+)
+
+knitr::kable(
+  Train,
+  caption = "TRAIN"
+)
+knitr::kable(
+  Test,
+  caption = "TEST"
+)
+knitr::kable(
+  TrainIDs,
+  caption = "TRAIN-ID"
+)
+```
+
+TRAIN contains the two predictors followed by the response renamed `y`.
+Its values remain in mm, percent, and MPa. TEST contains the same
+predictors followed by the original key, ready to identify prediction rows.
+TRAIN-ID contains `SampleID` in the same order as the filtered TRAIN rows.
+
+```{r cleanup, include = FALSE}
+unlink(Root, recursive = TRUE)
+```
+
+## When to use each helper
+
+- Use `which.nonnum()` to locate present values that direct base R conversion
+  rejects. Localized values may appear in this diagnostic even when
+  `toNumeric()` supports them.
+- Use `toNumeric()` when a vector follows its documented separator grammar.
+  It is not a locale, currency, or units parser.
+- Use `buildDataset()` when assembled CSVs must become response-specific model
+  inputs. If you only need an in-memory conversion, the vector helpers are the
+  smaller choice.
+
+## Important limits and side effects
+
+- A single comma or point is interpreted as a decimal separator; grouping widths
+  are not validated. Mixed separators, currency symbols, and unit suffixes
+  become missing.
+- Missing inputs remain missing. Conversion warnings are suppressed, so inspect
+  the result rather than relying on a warning.
+- `SET_COL` must contain no missing values, but this is not proactively checked.
+- `buildDataset()` omits incomplete training rows. It also omits prediction rows
+  with missing predictors or unseen character levels and reports their count.
+- Existing output files with the same names are overwritten. Other files in the
+  output directory are left in place.
+
+For complete classes, defaults, cleaning rules, validation, and failure
+behavior, use `?ssel::which.nonnum`, `?ssel::toNumeric`, and
+`?ssel::buildDataset`. The package reference index is available with
+`help(package = "ssel")`.
