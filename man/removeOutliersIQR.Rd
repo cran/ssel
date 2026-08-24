@@ -7,16 +7,38 @@
 removeOutliersIQR(.data, n = 3, q = 3)
 }
 \arguments{
-\item{.data}{Training data.}
+\item{.data}{Training data containing a numeric response column named \code{y}.
+The response name is the package's split contract: \code{\link[=buildDataset]{buildDataset()}} renames
+each response to \code{y} when it writes the training splits.}
 
-\item{n}{Number of important features to inspect.}
+\item{n}{Number of top-ranked predictors to inspect. Non-numeric predictors
+among them are ignored; when none of the \code{n} is numeric the data is
+returned unchanged.}
 
-\item{q}{IQR multiplier.}
+\item{q}{Multiplier of the interquartile range. The envelope of a column runs
+from its first quartile minus \code{q} times its interquartile range to its third
+quartile plus the same amount, so a larger \code{q} keeps more rows. At the
+default of 3 an approximately normal column loses no row.}
 }
 \value{
-A filtered \code{data.table}.
+A \code{data.table} holding the surviving rows and every original column.
 }
 \description{
-Fits a ranger model, selects important numeric predictors, and removes rows
-outside their interquartile-range envelopes.
+Fit a ranger model to rank the predictors by impurity importance, then drop
+every row that falls outside the interquartile-range envelope of any of the
+most important numeric ones. The envelopes apply together: a row survives
+only when it is inside all of them.
+}
+\section{Missing values}{
+
+The ranger fit runs through caret's formula interface, whose default
+\code{na.action} is \code{na.fail}, so a missing value anywhere in \code{.data} stops the
+call before any envelope is computed. Resolve missing values before calling.
+A missing value in a column being inspected would not by itself remove its
+row: this function removes outliers, not incomplete rows.
+}
+
+\seealso{
+\code{\link[=detectOutliers]{detectOutliers()}}, which scores rows instead of removing them and
+is the routine \code{\link[=buildDataset]{buildDataset()}} applies when outlier removal is enabled.
 }

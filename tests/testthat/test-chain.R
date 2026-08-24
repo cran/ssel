@@ -96,3 +96,20 @@ test_that("chain summary stitch keeps response artifacts on the selected iter", 
   expect_equal(data.table::fread(file.path(Summary, "prediction_quantiles.csv"))[
     response == "xrd.B", q_50], 1)
 })
+
+test_that(".chainBestIters excludes responses without iteration-0 metrics", {
+  M0 <- data.table::data.table(response = "a", dataset = "D",
+                               method = "ensemble.RMSE", rmse = 1, r2 = 0.5)
+  Conv <- data.table::data.table(iter = 1L, r2_a = 0.7, r2_b = 0.9)
+
+  expect_warning(
+    Best <- .chainBestIters(c("a", "b"), M0, Conv),
+    "no iteration-0 metrics for b"
+  )
+  expect_identical(Best, c(a = 1L))
+
+  expect_error(
+    suppressWarnings(.chainBestIters("b", M0[0L], Conv)),
+    "nothing to stitch"
+  )
+})

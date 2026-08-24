@@ -373,6 +373,58 @@ summarizes those residuals as signed offsets, and the two delivery
 helpers apply different selection rules. <code>modelPipeline()</code>
 orchestrates these helpers; it is not an additional statistical
 estimator.</p>
+<div id="choose-the-right-api-layer" class="section level2">
+<h2>Choose the right API layer</h2>
+<p>The two training helpers are active at different levels; they are not
+duplicate implementations.</p>
+<table>
+<colgroup>
+<col width="50%" />
+<col width="50%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Task</th>
+<th>Public helper</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>run the complete supervised workflow from assembled dataset
+CSVs</td>
+<td><code>modelPipeline()</code></td>
+</tr>
+<tr class="even">
+<td>discover all TRAIN splits and fit them with ssel’s standard
+defaults</td>
+<td><code>trainModel()</code></td>
+</tr>
+<tr class="odd">
+<td>fit an explicit cell grid with custom resampling or tuning
+controls</td>
+<td><code>trainRegressionModel(TRAIN = TRUE)</code></td>
+</tr>
+<tr class="even">
+<td>evaluate fitted cells, select deliveries, and assemble user-facing
+products</td>
+<td><code>predictModel()</code></td>
+</tr>
+<tr class="odd">
+<td>obtain raw cell metrics and long predictions without delivery
+selection</td>
+<td><code>trainRegressionModel(TRAIN = FALSE)</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>trainModel()</code> calls the engine in training mode and
+returns after model files are written. The metrics and response paths in
+its signature are prepared for the later evaluation phase; the wrapper
+does not populate them. Evaluation mode is likewise more than
+<code>predict()</code>: it first rebuilds OOF scores and ensembles, then
+predicts unseen rows. Most applications should therefore enter through
+<code>modelPipeline()</code> or the phase wrappers and use the cell
+engine directly only for controls those wrappers do not expose.</p>
+</div>
 <div id="notation-and-cells" class="section level2">
 <h2>Notation and cells</h2>
 <p>Let <span class="math inline">\(r\)</span> identify a response, <span class="math inline">\(d\)</span> a dataset, <span class="math inline">\(m\)</span> a learner, and <span class="math inline">\(i\)</span> a training row. A <strong>cell</strong>
@@ -397,30 +449,34 @@ normalized weights are dimensionless.</p>
 </thead>
 <tbody>
 <tr class="odd">
-<td>fit caret learners and retain selected-tuning OOF rows</td>
-<td><code>trainModel()</code>, <code>trainRegressionModel()</code></td>
+<td>discover the standard fitting grid</td>
+<td><code>trainModel()</code></td>
 </tr>
 <tr class="even">
+<td>fit explicit cells and retain selected-tuning OOF rows</td>
+<td><code>trainRegressionModel(TRAIN = TRUE)</code></td>
+</tr>
+<tr class="odd">
 <td>construct cell-level OOF and unseen-row ensembles</td>
 <td><code>trainRegressionModel()</code></td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td>independently reconstruct training-row OOF residuals</td>
 <td><code>oofEnsemble()</code></td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td>summarize residuals as signed offsets</td>
 <td><code>auditQuantiles()</code></td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td>select a response-level cell</td>
 <td><code>predictModel()</code></td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td>select final row-level RMSE candidates</td>
 <td><code>aggregateResponses()</code></td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td>compute the package optimism diagnostic</td>
 <td><code>auditOverfit()</code></td>
 </tr>
@@ -429,8 +485,11 @@ normalized weights are dimensionless.</p>
 </div>
 <div id="fitting-and-oof-scores" class="section level2">
 <h2>Fitting and OOF scores</h2>
-<p>Learners are fitted separately with <code>caret::train()</code> <span class="citation">(Kuhn 2008)</span>. Through <code>trainModel()</code>,
-ssel requests five-fold cross-validation, RMSE tuning, selected-tuning
+<p>Learners are fitted separately with <code>caret::train()</code> <span class="citation">(<a href="#ref-kuhn2008">Kuhn 2008</a>)</span>; current
+resampling, tuning, and reproducibility controls are documented in the
+<a href="https://topepo.github.io/caret/model-training-and-tuning.html">caret
+training and tuning guide</a>. Through <code>trainModel()</code>, ssel
+requests five-fold cross-validation, RMSE tuning, selected-tuning
 holdout predictions, and <code>tuneLength = 10</code>. A direct
 <code>trainRegressionModel()</code> call instead uses its
 <code>.numberCV</code>, <code>.tuneLength</code>, and
@@ -440,6 +499,14 @@ tuning parameter.</p>
 <p>Separate learner calls do not receive a common explicit resampling
 index. Their saved OOF rows therefore support learner-specific score
 estimation, but ssel does not claim identical folds across learners.</p>
+<p>Within one cell, the current evaluation engine uses the first
+requested learner that reaches scoring to establish the shared ordered
+observation vector. Later learners are scored against that vector; their
+own saved observations and row indices are not checked for equality. The
+equations below therefore describe the intended consistent-fit case. If
+fitted objects carry inconsistent OOF rows, learner order becomes
+material and the cell should be treated as invalid input rather than as
+a comparable ensemble.</p>
 <p>For each retained learner in cell <span class="math inline">\((r,d)\)</span>, evaluation reports</p>
 <p><span class="math display">\[
 \operatorname{RMSE}_{mrd}
@@ -506,8 +573,9 @@ interval projection used above is</p>
 <p><span class="math display">\[
 \Pi_{[a,b]}(z)=\min\{b,\max\{a,z\}\}.
 \]</span></p>
-<p>This is the ordinary projection onto a closed interval <span class="citation">(Parikh and Boyd 2014)</span>. Bounds are not
-proactively reordered, so this name applies only when <span class="math inline">\(a\le b\)</span>.</p>
+<p>This is the ordinary projection onto a closed interval <span class="citation">(<a href="#ref-parikh2014">Parikh and Boyd
+2014</a>)</span>. Bounds are not proactively reordered, so this name
+applies only when <span class="math inline">\(a\le b\)</span>.</p>
 </div>
 <div id="signed-residual-offsets" class="section level2">
 <h2>Signed residual offsets</h2>
@@ -519,19 +587,21 @@ H=(n-1)p+1.
 <p><span class="math display">\[
 j=\lfloor H\rfloor,\qquad \gamma=H-j.
 \]</span></p>
-<p>R’s type-7 sample quantile is then</p>
+<p>R’s <a href="https://www.stat.ethz.ch/R-manual/R-devel/library/stats/html/quantile.html">type-7
+sample quantile</a> is then</p>
 <p><span class="math display">\[
 q_{p,rd}=(1-\gamma)e_{(j)}+\gamma e_{(j+1)},
 \]</span></p>
-<p>with the endpoint convention described by <span class="citation">Hyndman and Fan (1996)</span>. The values are signed,
+<p>with the endpoint convention described by <span class="citation">Hyndman and Fan (<a href="#ref-hyndman1996">1996</a>)</span>. The values are signed,
 cell-pooled, and expressed in response units. Delivery helpers form</p>
 <p><span class="math display">\[
 Q_{p,ird}=\Pi_{[a,b]}\{\hat y_{ird}+q_{p,rd}\}.
 \]</span></p>
 <p>These are descriptive point-plus-residual-offset estimates. They are
-not conditional predictive quantiles, calibrated uncertainty intervals,
-or a conformal coverage procedure; those require different constructions
-<span class="citation">(Barber et al. 2021)</span>.</p>
+not conditional predictive quantiles or intervals with a calibrated
+coverage guarantee. Coverage-guaranteed procedures such as jackknife+
+require fold- or leave-one-out-specific predictions at each test point,
+which this estimator does not construct <span class="citation">(<a href="#ref-barber2021">Barber et al. 2021</a>)</span>.</p>
 </div>
 <div id="two-distinct-selection-rules" class="section level2">
 <h2>Two distinct selection rules</h2>
@@ -620,7 +690,7 @@ articles.</p>
 <h2 class="unnumbered">References</h2>
 <div id="refs" class="references csl-bib-body hanging-indent">
 <div id="ref-barber2021" class="csl-entry">
-Barber, Rina Foygel, Emmanuel J. Candes, Aaditya Ramdas, and Ryan J.
+Barber, Rina Foygel, Emmanuel J. Candès, Aaditya Ramdas, and Ryan J.
 Tibshirani. 2021. <span>“Predictive Inference with the
 Jackknife+.”</span> <em>The Annals of Statistics</em> 49 (1): 486–507.
 <a href="https://doi.org/10.1214/20-AOS1965">https://doi.org/10.1214/20-AOS1965</a>.

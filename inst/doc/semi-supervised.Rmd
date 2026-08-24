@@ -2,6 +2,7 @@
 title: "Range-ratio pseudo-label promotion"
 output: rmarkdown::html_vignette
 bibliography: ../inst/REFERENCES.bib
+link-citations: true
 vignette: >
   %\VignetteIndexEntry{Range-ratio pseudo-label promotion}
   %\VignetteEngine{knitr::rmarkdown}

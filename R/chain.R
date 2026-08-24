@@ -82,6 +82,33 @@
   invisible(To)
 }
 
+# R5 guard: a declared response with no iteration-0 metric row has no fitted
+# cells in any iteration (every cell skipped for insufficient support:
+# constant response, no complete training rows). It has no delivery rows to
+# preserve, so the stitch excludes it with a warning instead of aborting on
+# a zero-length metric lookup.
+.chainBestIters <- function(responses, M0.tab, Conv) {
+  Fit <- intersect(responses, M0.tab$response)
+  Missing <- setdiff(responses, Fit)
+  if (length(Missing)) {
+    .WARN(sprintf("chainPipeline R5: no iteration-0 metrics for %s - excluded from stitch",
+                  paste(Missing, collapse = ", ")))
+  }
+  if (length(Fit) == 0L) {
+    stop("chainPipeline R5: no response has iteration-0 metrics - nothing to stitch.",
+         call. = FALSE)
+  }
+  Best <- vapply(Fit, function(r) {
+    r2.0   <- M0.tab[response == r, r2]
+    r2.col <- paste0("r2_", r)
+    iters  <- c(0L, Conv$iter)
+    r2s    <- c(r2.0, if (r2.col %in% names(Conv)) Conv[[r2.col]] else rep(NA_real_, nrow(Conv)))
+    iters[which.max(r2s)]
+  }, integer(1))
+  names(Best) <- Fit
+  Best
+}
+
 .stitchChainSummary <- function(.path.summary, .path.iter, responses, bestPerResp) {
   for (File in .chainSummaryFiles) {
     Rows <- rbindlist(lapply(responses, function(Response) {
@@ -630,23 +657,16 @@ chainPipeline <- function(
   M0.tab <- fread(file.path(.path.iter, "metrics_0.csv"))[method == "ensemble.RMSE",
               .SD[which.min(rmse)], by = response]
 
-  BestPerResp <- vapply(responses, function(r) {
-    r2.0    <- M0.tab[response == r, r2]
-    r2.col  <- paste0("r2_", r)
-    iters   <- c(0L, Conv$iter)
-    r2s     <- c(r2.0, if (r2.col %in% names(Conv)) Conv[[r2.col]] else rep(NA_real_, nrow(Conv)))
-    iters[which.max(r2s)]
-  }, integer(1))
-  names(BestPerResp) <- responses
+  BestPerResp <- .chainBestIters(responses, M0.tab, Conv)
 
   .HEAD("R5 - per-response best iter (stitched final pass)")
-  for (r in responses) {
+  for (r in names(BestPerResp)) {
     t.j  <- BestPerResp[[r]]
     r2.j <- if (t.j == 0L) M0.tab[response == r, r2] else Conv[iter == t.j, get(paste0("r2_", r))]
     .SUB(sprintf("%-5s -> iter %2d  (R2=%.4f)", r, t.j, r2.j))
   }
 
-  Yo.stitch <- rbindlist(lapply(responses, function(r) {
+  Yo.stitch <- rbindlist(lapply(names(BestPerResp), function(r) {
     t.j     <- BestPerResp[[r]]
     Yo.path <- file.path(.path.iter, sprintf("Yo%d.csv", t.j))
     if (!file.exists(Yo.path)) stop(sprintf("chainPipeline R5: %s not found", Yo.path))
@@ -654,7 +674,7 @@ chainPipeline <- function(
   }), use.names = TRUE)
   fwrite(Yo.stitch, file.path(.path.export, "Yo.csv"))
 
-  .stitchChainSummary(.path.summary, .path.iter, responses, BestPerResp)
+  .stitchChainSummary(.path.summary, .path.iter, names(BestPerResp), BestPerResp)
   Metrics.stitch <- fread(file.path(.path.summary, "metrics.csv"))
 
   .OK(sprintf("data/export/Yo.csv: %d rows (stitched from %d snapshots)",

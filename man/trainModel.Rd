@@ -2,7 +2,7 @@
 % Please edit documentation in R/ssel-package.R
 \name{trainModel}
 \alias{trainModel}
-\title{Fit a discovered response--dataset grid}
+\title{Fit every discovered response--dataset training cell}
 \usage{
 trainModel(.path.train, .path.model, .path.metrics, .path.response,
   METHODS, PPROC = NULL, OVERRIDE = FALSE, .min = -Inf, .max = Inf,
@@ -21,9 +21,10 @@ but receives no metric file from this training-only wrapper.}
 \item{.path.response}{Path to a prediction directory. It is created when
 absent but receives no prediction file from this training-only wrapper.}
 
-\item{METHODS}{A non-empty character vector of method identifiers accepted
-by \code{\link[caret:train]{caret::train()}}. Duplicate identifiers are removed. Their execution
-order is randomized for each dataset.}
+\item{METHODS}{A character vector of method identifiers accepted by
+\code{\link[caret:train]{caret::train()}}. Duplicate identifiers are removed. Their execution order
+is randomized for each dataset. An empty vector is not rejected, but no
+learner is then fitted.}
 
 \item{PPROC}{\code{NULL}, a character vector, or another preprocessing
 specification accepted by the \code{preProcess} argument of \code{\link[caret:train]{caret::train()}}.}
@@ -38,7 +39,8 @@ training mode only, so the bounds do not alter fitting or training data.
 Their order and finiteness are not validated.}
 
 \item{.responses}{\code{NULL}, or a character vector restricting the discovered
-response names. \code{NULL} fits every discovered response.}
+response names. \code{NULL} fits every discovered response. Requested names
+absent from the discovered files are ignored.}
 }
 \value{
 Invisibly returns \code{NULL}. The fitted \code{.Rds} and \code{.Rds.hash} files
@@ -46,17 +48,28 @@ are the result; \code{.path.metrics} and \code{.path.response} are only prepared
 later evaluation calls.
 }
 \description{
-Discover training splits created by \code{\link[=buildDataset]{buildDataset()}}, construct a grid of
-response and dataset identifiers, and attempt the requested caret learners
-for every grid cell. Use this wrapper when the split directory is
-authoritative and the standard ssel fitting policy is appropriate. Use
-\code{\link[=trainRegressionModel]{trainRegressionModel()}} directly to control the exact cells, number of
-resamples, tuning granularity, or parallel backend.
+Training-only wrapper around \code{\link[=trainRegressionModel]{trainRegressionModel()}}. It discovers split
+files created by \code{\link[=buildDataset]{buildDataset()}}, constructs the response--dataset grid,
+and requests every learner under ssel's standard fitting defaults. It does
+not evaluate fitted models, write metrics, or predict unseen rows.
 }
+\section{Choosing the API layer}{
+
+Use \code{\link[=modelPipeline]{modelPipeline()}} when starting from assembled dataset CSVs and the
+complete supervised workflow is required. Use \code{trainModel()} when TRAIN
+split files already exist and the standard five-fold/RMSE fitting policy is
+appropriate. Call \code{\link[=trainRegressionModel]{trainRegressionModel()}} with \code{TRAIN = TRUE} only when the
+requested response--dataset identifier grid, fold count, tuning granularity,
+preprocessing, metric, or parallel mode must be controlled directly.
+Fitted-model evaluation and delivery belong to \code{\link[=predictModel]{predictModel()}}; this
+wrapper performs no evaluation despite receiving metrics and response paths.
+}
+
 \section{Split-file contract}{
 
 A training filename must have the form
-\code{response_dataset_TRAIN.csv}. Discovery interprets the first two
+\code{response_dataset_TRAIN.csv}; suffix matching is case-sensitive. Discovery
+interprets the first two
 underscore-separated fields as \code{response} and \code{dataset}; those identifiers
 therefore cannot contain underscores. This restriction is not proactively
 validated. The parsed responses and datasets are deduplicated separately,
@@ -65,6 +78,8 @@ reconstructed pairs that were not present therefore warn and skip. Each CSV
 that is found must satisfy the \code{\link[=trainRegressionModel]{trainRegressionModel()}} training schema:
 predictor columns followed by, or otherwise including, a numeric response
 column named \code{y} with at least two distinct non-missing values.
+If no filename matches, the output directories are still prepared and the
+function returns without fitting a model or emitting a warning.
 
 Dataset order and the unique learner order are randomized with R's current
 random-number generator. Call \code{\link[=set.seed]{set.seed()}} immediately before this function

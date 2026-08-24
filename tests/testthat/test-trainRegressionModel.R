@@ -93,6 +93,56 @@ test_that("trainRegressionModel rejects a missing prediction key", {
   )
 })
 
+test_that("trainRegressionModel skips prediction when TEST has no rows", {
+  Root <- tempfile("ssel-empty-test-")
+  on.exit(unlink(Root, recursive = TRUE), add = TRUE)
+
+  Data <- file.path(Root, "data")
+  Model <- file.path(Root, "model")
+  Metrics <- file.path(Root, "metrics")
+  Response <- file.path(Root, "response")
+  for (Dir in c(Data, Model, Metrics, Response)) dir.create(Dir, recursive = TRUE)
+
+  Observed <- c(0, 1, 2, 3)
+  data.table::fwrite(
+    data.table::data.table(x = seq_along(Observed), y = Observed),
+    file.path(Data, "y_D_TRAIN.csv")
+  )
+  # Header-only TEST: buildDataset() Stage 9 drops every TEST row when each
+  # one carries an NA in some predictor (routine in spatial/chain datasets).
+  data.table::fwrite(
+    data.table::data.table(x = numeric(0), SampleID = character(0)),
+    file.path(Data, "y_D_TEST.csv")
+  )
+
+  Fit <- stats::lm(y ~ 1, data = data.frame(y = Observed))
+  Fit$pred <- data.frame(
+    tune = 1L,
+    pred = Observed + c(1, -1, 1, -1),
+    obs = Observed,
+    rowIndex = seq_along(Observed)
+  )
+  Fit$bestTune <- data.frame(tune = 1L)
+  saveRDS(Fit, file.path(Model, "left_y_D.Rds"))
+
+  DT.metrics <- NULL
+  expect_warning(
+    DT.metrics <- suppressMessages(
+      trainRegressionModel(.path.data = Data, .path.model = Model,
+                           .path.metrics = Metrics, .path.response = Response,
+                           TRAIN = FALSE, PARALLEL = FALSE,
+                           .responses = "y", .datasets = "D",
+                           .methods = "left")
+    ),
+    "TEST vac\u00edo - se omite predicci\u00f3n"
+  )
+
+  # Stage 2 metrics for the cell survive; only the prediction is skipped.
+  expect_equal(nrow(DT.metrics[method == "left" & set == "y_D"]), 1L)
+  expect_true(file.exists(file.path(Metrics, "y_D.csv")))
+  expect_length(list.files(Response, pattern = "\\.csv$"), 0L)
+})
+
 test_that("trainRegressionModel keeps Stage 3 weights cell-specific", {
   runFixture <- function(Responses) {
     Root <- tempfile("ssel-stage3-weights-")

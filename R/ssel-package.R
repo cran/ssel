@@ -165,14 +165,12 @@ utils::globalVariables(c(
 #' @name buildDataset
 NULL
 
-#' Fit a discovered response--dataset grid
+#' Fit every discovered response--dataset training cell
 #'
-#' Discover training splits created by [buildDataset()], construct a grid of
-#' response and dataset identifiers, and attempt the requested caret learners
-#' for every grid cell. Use this wrapper when the split directory is
-#' authoritative and the standard ssel fitting policy is appropriate. Use
-#' [trainRegressionModel()] directly to control the exact cells, number of
-#' resamples, tuning granularity, or parallel backend.
+#' Training-only wrapper around [trainRegressionModel()]. It discovers split
+#' files created by [buildDataset()], constructs the response--dataset grid,
+#' and requests every learner under ssel's standard fitting defaults. It does
+#' not evaluate fitted models, write metrics, or predict unseen rows.
 #'
 #' @param .path.train Path to an existing directory containing split files.
 #'   Files are discovered non-recursively by the suffix `_TRAIN.csv`.
@@ -182,9 +180,10 @@ NULL
 #'   but receives no metric file from this training-only wrapper.
 #' @param .path.response Path to a prediction directory. It is created when
 #'   absent but receives no prediction file from this training-only wrapper.
-#' @param METHODS A non-empty character vector of method identifiers accepted
-#'   by [caret::train()]. Duplicate identifiers are removed. Their execution
-#'   order is randomized for each dataset.
+#' @param METHODS A character vector of method identifiers accepted by
+#'   [caret::train()]. Duplicate identifiers are removed. Their execution order
+#'   is randomized for each dataset. An empty vector is not rejected, but no
+#'   learner is then fitted.
 #' @param PPROC `NULL`, a character vector, or another preprocessing
 #'   specification accepted by the `preProcess` argument of [caret::train()].
 #' @param OVERRIDE A non-missing logical scalar. If `FALSE`, an existing model
@@ -195,11 +194,23 @@ NULL
 #'   training mode only, so the bounds do not alter fitting or training data.
 #'   Their order and finiteness are not validated.
 #' @param .responses `NULL`, or a character vector restricting the discovered
-#'   response names. `NULL` fits every discovered response.
+#'   response names. `NULL` fits every discovered response. Requested names
+#'   absent from the discovered files are ignored.
+#'
+#' @section Choosing the API layer:
+#' Use [modelPipeline()] when starting from assembled dataset CSVs and the
+#' complete supervised workflow is required. Use `trainModel()` when TRAIN
+#' split files already exist and the standard five-fold/RMSE fitting policy is
+#' appropriate. Call [trainRegressionModel()] with `TRAIN = TRUE` only when the
+#' requested response--dataset identifier grid, fold count, tuning granularity,
+#' preprocessing, metric, or parallel mode must be controlled directly.
+#' Fitted-model evaluation and delivery belong to [predictModel()]; this
+#' wrapper performs no evaluation despite receiving metrics and response paths.
 #'
 #' @section Split-file contract:
 #' A training filename must have the form
-#' `response_dataset_TRAIN.csv`. Discovery interprets the first two
+#' `response_dataset_TRAIN.csv`; suffix matching is case-sensitive. Discovery
+#' interprets the first two
 #' underscore-separated fields as `response` and `dataset`; those identifiers
 #' therefore cannot contain underscores. This restriction is not proactively
 #' validated. The parsed responses and datasets are deduplicated separately,
@@ -208,6 +219,8 @@ NULL
 #' that is found must satisfy the [trainRegressionModel()] training schema:
 #' predictor columns followed by, or otherwise including, a numeric response
 #' column named `y` with at least two distinct non-missing values.
+#' If no filename matches, the output directories are still prepared and the
+#' function returns without fitting a model or emitting a warning.
 #'
 #' Dataset order and the unique learner order are randomized with R's current
 #' random-number generator. Call [set.seed()] immediately before this function
@@ -295,27 +308,29 @@ NULL
 #' @name trainModel
 NULL
 
-#' Fit cells or reconstruct their OOF metrics and predictions
+#' Fit or evaluate a requested response--dataset grid
 #'
-#' Operate on explicit response--dataset cells in one of two modes. Training
-#' mode fits and caches caret learners. Evaluation mode reconstructs projected
-#' out-of-fold (OOF) predictions, writes base and weighted-ensemble metrics,
-#' and predicts the matching unseen rows. Most users call [trainModel()] and
-#' [predictModel()]; use this engine directly when its resampling or cell-level
-#' controls are needed.
+#' Low-level engine for a requested response--dataset--learner grid. Training
+#' mode fits and caches caret learners. Evaluation mode first reconstructs
+#' projected out-of-fold (OOF) metrics and weighted ensembles, then predicts
+#' matching unseen rows. The higher-level [trainModel()] and [predictModel()]
+#' wrappers call these two modes; direct use is intended for grid-level control.
 #'
 #' @param .path.data Path to an existing directory containing the split CSV
 #'   files described in **Split files**.
-#' @param .path.model Path to an existing writable directory for model `.Rds`
-#'   files and their `.Rds.hash` companions. Evaluation mode reads the `.Rds`
-#'   files and does not use the hashes.
-#' @param .path.metrics Path to an existing writable metrics directory.
-#'   Training mode does not write it. Evaluation mode overwrites assigned
-#'   cell-named CSVs and reads every `.csv` already present in this directory;
-#'   use a dedicated clean directory for one run.
-#' @param .path.response Path to an existing writable prediction directory.
-#'   Training mode does not write it. Evaluation mode overwrites one
-#'   cell-named CSV per cell that reaches prediction.
+#' @param .path.model Model directory. Training mode requires it to exist and
+#'   be writable for `.Rds` files and their `.Rds.hash` companions. Evaluation
+#'   mode requires it to exist and be readable; it reads `.Rds` files and does
+#'   not use the hashes. This engine does not create the directory.
+#' @param .path.metrics Metrics directory. Training mode does not touch this
+#'   path, so it need not exist for a training-only call. Evaluation mode
+#'   requires an existing writable directory, overwrites assigned cell-named
+#'   CSVs, and reads every `.csv` already present; use a dedicated clean
+#'   directory for one run.
+#' @param .path.response Prediction directory. Training mode does not touch this
+#'   path, so it need not exist for a training-only call. Evaluation mode
+#'   requires an existing writable directory and overwrites one cell-named CSV
+#'   per cell that reaches prediction. This engine does not create it.
 #' @param OVERRIDE A non-missing logical scalar used only in training mode.
 #'   `FALSE` reuses a model when both model and hash files exist and the sorted
 #'   predictor-name hash matches; `TRUE` fits it again.
@@ -348,13 +363,25 @@ NULL
 #'   settings in training mode. The default is `"RMSE"`; it does not change
 #'   the fixed metrics written by evaluation mode.
 #'
+#' @section Choosing the API layer:
+#' This function is not a second supervised workflow. [trainModel()] discovers
+#' split files and calls `TRAIN = TRUE` with ssel's standard defaults.
+#' [predictModel()] discovers the same grid, calls `TRAIN = FALSE`, and then
+#' performs response-level selection and delivery assembly.
+#' [semiSupervisedPipeline()] also calls `TRAIN = FALSE, PARALLEL = FALSE` for
+#' its final serial re-emission. Use this engine directly only when those
+#' wrappers do not expose the required identifier grid, resampling, tuning,
+#' projection, or execution control.
+#'
 #' @section Split files:
-#' For each requested `response` and `dataset`, the training file is
-#' `response_dataset_TRAIN.csv`. It must contain predictor columns and a
-#' numeric column named `y`. Integer columns are promoted to double. A cell is
-#' skipped with a warning when the file is absent, `y` is absent, `y` has no
-#' non-missing value, or fewer than two distinct non-missing response values
-#' remain.
+#' The function expands `.responses`, `.datasets`, and `.methods` as a Cartesian
+#' product, in response--dataset--method loop order; it does not accept a sparse
+#' list of selected tuples. For each requested `response` and `dataset`, the
+#' training file is `response_dataset_TRAIN.csv`. It must contain predictor
+#' columns and a numeric column named `y`. Integer columns are promoted to
+#' double. A cell is skipped with a warning when the file is absent, `y` is
+#' absent, `y` has no non-missing value, or fewer than two distinct non-missing
+#' response values remain.
 #'
 #' Evaluation mode additionally requires
 #' `response_dataset_TEST.csv`. It must contain the fitted predictors and
@@ -384,8 +411,16 @@ NULL
 #' When `a = .min <= .max = b`, define interval projection by
 #' \eqn{\Pi_{[a,b]}(z)=\min\{b,\max\{a,z\}\}}. For method \eqn{m}, evaluation
 #' mode merges the saved final-tuning caret holdout predictions, orders them by
-#' caret row index, and applies this projection. Let \eqn{y_i} be the observed
-#' response and \eqn{\hat y_{mi}} the projected OOF prediction for training row
+#' caret row index, and applies this projection.
+#'
+#' The first requested method that reaches this scoring step for a cell stores
+#' its ordered `obs` vector as the cell's shared reference response. Every later
+#' method is scored against that stored vector rather than its own merged
+#' `obs`. The function does not verify cross-method equality of observations,
+#' row indices, or vector lengths. Consequently, the supplied method order is
+#' material when fitted objects contain inconsistent saved OOF rows. In the
+#' equations below, \eqn{y_i} denotes this first-method reference vector and
+#' \eqn{\hat y_{mi}} the projected OOF prediction for method \eqn{m} and row
 #' \eqn{i=1,\ldots,n}. The reported scores are
 #' \deqn{\mathrm{RMSE}_m=\left[n^{-1}\sum_i(y_i-\hat y_{mi})^2\right]^{1/2},}
 #' \deqn{\mathrm{MAE}_m=n^{-1}\sum_i\left|y_i-\hat y_{mi}\right|,}
@@ -447,6 +482,12 @@ NULL
 #' appear in a later cell's file. Columns are `method`, `set`, `dataset`,
 #' `response`, `rmse`, `mae`, `r2`, `n`, and `p`. Existing assigned files are
 #' overwritten.
+#'
+#' After the OOF pass, every CSV in `.path.metrics` is row-bound to determine
+#' which base methods are eligible for unseen-row prediction. Stale or unrelated
+#' compatible rows can therefore affect method discovery even though ensemble
+#' weights come only from the current call's cell-local score lists. A clean,
+#' dedicated metrics directory is required for an isolated evaluation.
 #'
 #' Each predicted cell writes
 #' `.path.response/response_dataset.csv` with one row per unseen row and
@@ -1496,13 +1537,32 @@ NULL
 
 #' Remove rows outside feature IQR envelopes
 #'
-#' Fits a ranger model, selects important numeric predictors, and removes rows
-#' outside their interquartile-range envelopes.
+#' Fit a ranger model to rank the predictors by impurity importance, then drop
+#' every row that falls outside the interquartile-range envelope of any of the
+#' most important numeric ones. The envelopes apply together: a row survives
+#' only when it is inside all of them.
 #'
-#' @param .data Training data.
-#' @param n Number of important features to inspect.
-#' @param q IQR multiplier.
-#' @return A filtered `data.table`.
+#' @param .data Training data containing a numeric response column named `y`.
+#'   The response name is the package's split contract: [buildDataset()] renames
+#'   each response to `y` when it writes the training splits.
+#' @param n Number of top-ranked predictors to inspect. Non-numeric predictors
+#'   among them are ignored; when none of the `n` is numeric the data is
+#'   returned unchanged.
+#' @param q Multiplier of the interquartile range. The envelope of a column runs
+#'   from its first quartile minus `q` times its interquartile range to its third
+#'   quartile plus the same amount, so a larger `q` keeps more rows. At the
+#'   default of 3 an approximately normal column loses no row.
+#' @return A `data.table` holding the surviving rows and every original column.
+#'
+#' @section Missing values:
+#' The ranger fit runs through caret's formula interface, whose default
+#' `na.action` is `na.fail`, so a missing value anywhere in `.data` stops the
+#' call before any envelope is computed. Resolve missing values before calling.
+#' A missing value in a column being inspected would not by itself remove its
+#' row: this function removes outliers, not incomplete rows.
+#'
+#' @seealso [detectOutliers()], which scores rows instead of removing them and
+#'   is the routine [buildDataset()] applies when outlier removal is enabled.
 #' @usage removeOutliersIQR(.data, n = 3, q = 3)
 #' @name removeOutliersIQR
 NULL

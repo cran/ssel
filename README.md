@@ -30,7 +30,7 @@ arguments.
 `ssel` requires R >= 4.1.0.
 
 ```r
-# Stable release, after CRAN acceptance
+# Released version
 install.packages("ssel")
 ```
 

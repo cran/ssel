@@ -1,3 +1,58 @@
+# ssel 0.4.0
+
+## Bug fixes
+
+- `removeOutliersIQR()` applies the interquartile envelopes of the inspected
+  predictors together instead of one at a time. The loop rebuilt the surviving
+  set from the original data on each pass, so only the last inspected column
+  ever narrowed it: with an outlier seeded in each of three columns the function
+  removed one row of sixty. It now removes all three. A dataset whose ranked
+  predictors are all non-numeric returns unchanged rather than failing in a C
+  stack overflow, and a missing value in an inspected column no longer decides
+  its row, because a value that cannot be compared to an envelope is not
+  evidence of an outlier.
+
+## Behavior changes
+
+- Stage 3 prediction skips a cell whose `TEST` split holds no rows, with a
+  warning, instead of aborting the run. `buildDataset()` can drop every test row
+  of a cell when a predictor lacks coverage, which is routine in chain datasets;
+  the run previously stopped on a type mismatch. The Stage 2 metrics and
+  out-of-fold predictions of the skipped cell stand, and the cell contributes no
+  delivery rows.
+
+- The chain stitch excludes a declared response that produced no iteration-0
+  metric row, with a warning, instead of aborting. Such a response has no fitted
+  cell in any iteration — every cell was skipped for insufficient support — so
+  it has no delivery rows to preserve.
+
+## Removals
+
+- The `resampling` argument and its temporal `timeslice` mode are removed from
+  `modelPipeline()`, `chainPipeline()`, `trainModel()` and
+  `trainRegressionModel()`, together with the internal `.resolveResampling()`
+  helper, its short-series guard, its test file, and its vignette. The argument
+  never reached a released version: it was added after 0.3.1 was published, and
+  no consumer passed it. Fitting returns to the single k-fold generator it used
+  before, and every artifact of a default run is unchanged.
+
+  Time-respecting evaluation belongs to a separate forecast API whose unit is a
+  series rather than a row, and which needs a horizon axis that none of the
+  present artifacts carry. Threading a fold generator through the supervised
+  path could not provide it.
+
+## Documentation
+
+- The help topics of `trainModel()` and `trainRegressionModel()` describe the
+  layers of the training API as they behave: which stage owns each directory,
+  what each mode reads and writes, and where the ensemble weights come from.
+  The ensemble-theory article gains the matching derivation.
+
+- `removeOutliersIQR()` states what it does. The topic previously described
+  envelopes that the function did not apply, and did not mention that the
+  response column must be named `y` or that the caret formula interface rejects
+  missing values before any envelope is computed.
+
 # ssel 0.3.1
 
 ## Bug fixes

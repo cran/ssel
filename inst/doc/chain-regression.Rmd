@@ -2,6 +2,7 @@
 title: "Iterative multi-response input expansion"
 output: rmarkdown::html_vignette
 bibliography: ../inst/REFERENCES.bib
+link-citations: true
 vignette: >
   %\VignetteIndexEntry{Iterative multi-response input expansion}
   %\VignetteEngine{knitr::rmarkdown}

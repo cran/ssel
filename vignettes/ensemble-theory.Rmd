@@ -2,6 +2,7 @@
 title: "Ensemble estimators and residual offsets"
 output: rmarkdown::html_vignette
 bibliography: ../inst/REFERENCES.bib
+link-citations: true
 vignette: >
   %\VignetteIndexEntry{Ensemble estimators and residual offsets}
   %\VignetteEngine{knitr::rmarkdown}
@@ -21,6 +22,27 @@ residuals as signed offsets, and the two delivery helpers apply different
 selection rules. `modelPipeline()` orchestrates these helpers; it is not an
 additional statistical estimator.
 
+## Choose the right API layer
+
+The two training helpers are active at different levels; they are not duplicate
+implementations.
+
+| Task | Public helper |
+|---|---|
+| run the complete supervised workflow from assembled dataset CSVs | `modelPipeline()` |
+| discover all TRAIN splits and fit them with ssel's standard defaults | `trainModel()` |
+| fit an explicit cell grid with custom resampling or tuning controls | `trainRegressionModel(TRAIN = TRUE)` |
+| evaluate fitted cells, select deliveries, and assemble user-facing products | `predictModel()` |
+| obtain raw cell metrics and long predictions without delivery selection | `trainRegressionModel(TRAIN = FALSE)` |
+
+`trainModel()` calls the engine in training mode and returns after model files
+are written. The metrics and response paths in its signature are prepared for
+the later evaluation phase; the wrapper does not populate them. Evaluation mode
+is likewise more than `predict()`: it first rebuilds OOF scores and ensembles,
+then predicts unseen rows. Most applications should therefore enter through
+`modelPipeline()` or the phase wrappers and use the cell engine directly only
+for controls those wrappers do not expose.
+
 ## Notation and cells
 
 Let $r$ identify a response, $d$ a dataset, $m$ a learner, and $i$ a
@@ -34,7 +56,8 @@ The principal API mapping is:
 
 | Mathematical role | Public helper |
 |---|---|
-| fit caret learners and retain selected-tuning OOF rows | `trainModel()`, `trainRegressionModel()` |
+| discover the standard fitting grid | `trainModel()` |
+| fit explicit cells and retain selected-tuning OOF rows | `trainRegressionModel(TRAIN = TRUE)` |
 | construct cell-level OOF and unseen-row ensembles | `trainRegressionModel()` |
 | independently reconstruct training-row OOF residuals | `oofEnsemble()` |
 | summarize residuals as signed offsets | `auditQuantiles()` |
@@ -44,8 +67,10 @@ The principal API mapping is:
 
 ## Fitting and OOF scores
 
-Learners are fitted separately with `caret::train()` [@kuhn2008]. Through
-`trainModel()`, ssel requests five-fold cross-validation, RMSE tuning,
+Learners are fitted separately with `caret::train()` [@kuhn2008]; current
+resampling, tuning, and reproducibility controls are documented in the
+[caret training and tuning guide](https://topepo.github.io/caret/model-training-and-tuning.html).
+Through `trainModel()`, ssel requests five-fold cross-validation, RMSE tuning,
 selected-tuning holdout predictions, and `tuneLength = 10`. A direct
 `trainRegressionModel()` call instead uses its `.numberCV`, `.tuneLength`, and
 `.metric` arguments. The tuning length requests method-specific grid
@@ -54,6 +79,14 @@ granularity; it is not a number of points per tuning parameter.
 Separate learner calls do not receive a common explicit resampling index.
 Their saved OOF rows therefore support learner-specific score estimation, but
 ssel does not claim identical folds across learners.
+
+Within one cell, the current evaluation engine uses the first requested learner
+that reaches scoring to establish the shared ordered observation vector. Later
+learners are scored against that vector; their own saved observations and row
+indices are not checked for equality. The equations below therefore describe
+the intended consistent-fit case. If fitted objects carry inconsistent OOF
+rows, learner order becomes material and the cell should be treated as invalid
+input rather than as a comparable ensemble.
 
 For each retained learner in cell $(r,d)$, evaluation reports
 
@@ -146,7 +179,8 @@ $$
 j=\lfloor H\rfloor,\qquad \gamma=H-j.
 $$
 
-R's type-7 sample quantile is then
+R's [type-7 sample quantile](https://www.stat.ethz.ch/R-manual/R-devel/library/stats/html/quantile.html)
+is then
 
 $$
 q_{p,rd}=(1-\gamma)e_{(j)}+\gamma e_{(j+1)},
@@ -160,9 +194,10 @@ Q_{p,ird}=\Pi_{[a,b]}\{\hat y_{ird}+q_{p,rd}\}.
 $$
 
 These are descriptive point-plus-residual-offset estimates. They are not
-conditional predictive quantiles, calibrated uncertainty intervals, or a
-conformal coverage procedure; those require different constructions
-[@barber2021].
+conditional predictive quantiles or intervals with a calibrated coverage
+guarantee. Coverage-guaranteed procedures such as jackknife+ require fold- or
+leave-one-out-specific predictions at each test point, which this estimator
+does not construct [@barber2021].
 
 ## Two distinct selection rules
 

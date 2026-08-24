@@ -2,7 +2,7 @@
 % Please edit documentation in R/ssel-package.R
 \name{trainRegressionModel}
 \alias{trainRegressionModel}
-\title{Fit cells or reconstruct their OOF metrics and predictions}
+\title{Fit or evaluate a requested response--dataset grid}
 \usage{
 trainRegressionModel(.path.data, .path.model, .path.metrics,
   .path.response, OVERRIDE = FALSE, TRAIN = TRUE, PARALLEL = TRUE,
@@ -14,18 +14,21 @@ trainRegressionModel(.path.data, .path.model, .path.metrics,
 \item{.path.data}{Path to an existing directory containing the split CSV
 files described in \strong{Split files}.}
 
-\item{.path.model}{Path to an existing writable directory for model \code{.Rds}
-files and their \code{.Rds.hash} companions. Evaluation mode reads the \code{.Rds}
-files and does not use the hashes.}
+\item{.path.model}{Model directory. Training mode requires it to exist and
+be writable for \code{.Rds} files and their \code{.Rds.hash} companions. Evaluation
+mode requires it to exist and be readable; it reads \code{.Rds} files and does
+not use the hashes. This engine does not create the directory.}
 
-\item{.path.metrics}{Path to an existing writable metrics directory.
-Training mode does not write it. Evaluation mode overwrites assigned
-cell-named CSVs and reads every \code{.csv} already present in this directory;
-use a dedicated clean directory for one run.}
+\item{.path.metrics}{Metrics directory. Training mode does not touch this
+path, so it need not exist for a training-only call. Evaluation mode
+requires an existing writable directory, overwrites assigned cell-named
+CSVs, and reads every \code{.csv} already present; use a dedicated clean
+directory for one run.}
 
-\item{.path.response}{Path to an existing writable prediction directory.
-Training mode does not write it. Evaluation mode overwrites one
-cell-named CSV per cell that reaches prediction.}
+\item{.path.response}{Prediction directory. Training mode does not touch this
+path, so it need not exist for a training-only call. Evaluation mode
+requires an existing writable directory and overwrites one cell-named CSV
+per cell that reaches prediction. This engine does not create it.}
 
 \item{OVERRIDE}{A non-missing logical scalar used only in training mode.
 \code{FALSE} reuses a model when both model and hash files exist and the sorted
@@ -75,21 +78,34 @@ In training mode, invisibly \code{NULL}. In evaluation mode, invisibly a
 return value}.
 }
 \description{
-Operate on explicit response--dataset cells in one of two modes. Training
-mode fits and caches caret learners. Evaluation mode reconstructs projected
-out-of-fold (OOF) predictions, writes base and weighted-ensemble metrics,
-and predicts the matching unseen rows. Most users call \code{\link[=trainModel]{trainModel()}} and
-\code{\link[=predictModel]{predictModel()}}; use this engine directly when its resampling or cell-level
-controls are needed.
+Low-level engine for a requested response--dataset--learner grid. Training
+mode fits and caches caret learners. Evaluation mode first reconstructs
+projected out-of-fold (OOF) metrics and weighted ensembles, then predicts
+matching unseen rows. The higher-level \code{\link[=trainModel]{trainModel()}} and \code{\link[=predictModel]{predictModel()}}
+wrappers call these two modes; direct use is intended for grid-level control.
 }
+\section{Choosing the API layer}{
+
+This function is not a second supervised workflow. \code{\link[=trainModel]{trainModel()}} discovers
+split files and calls \code{TRAIN = TRUE} with ssel's standard defaults.
+\code{\link[=predictModel]{predictModel()}} discovers the same grid, calls \code{TRAIN = FALSE}, and then
+performs response-level selection and delivery assembly.
+\code{\link[=semiSupervisedPipeline]{semiSupervisedPipeline()}} also calls \verb{TRAIN = FALSE, PARALLEL = FALSE} for
+its final serial re-emission. Use this engine directly only when those
+wrappers do not expose the required identifier grid, resampling, tuning,
+projection, or execution control.
+}
+
 \section{Split files}{
 
-For each requested \code{response} and \code{dataset}, the training file is
-\code{response_dataset_TRAIN.csv}. It must contain predictor columns and a
-numeric column named \code{y}. Integer columns are promoted to double. A cell is
-skipped with a warning when the file is absent, \code{y} is absent, \code{y} has no
-non-missing value, or fewer than two distinct non-missing response values
-remain.
+The function expands \code{.responses}, \code{.datasets}, and \code{.methods} as a Cartesian
+product, in response--dataset--method loop order; it does not accept a sparse
+list of selected tuples. For each requested \code{response} and \code{dataset}, the
+training file is \code{response_dataset_TRAIN.csv}. It must contain predictor
+columns and a numeric column named \code{y}. Integer columns are promoted to
+double. A cell is skipped with a warning when the file is absent, \code{y} is
+absent, \code{y} has no non-missing value, or fewer than two distinct non-missing
+response values remain.
 
 Evaluation mode additionally requires
 \code{response_dataset_TEST.csv}. It must contain the fitted predictors and
@@ -123,8 +139,16 @@ learner; successful cells continue.
 When \code{a = .min <= .max = b}, define interval projection by
 \eqn{\Pi_{[a,b]}(z)=\min\{b,\max\{a,z\}\}}. For method \eqn{m}, evaluation
 mode merges the saved final-tuning caret holdout predictions, orders them by
-caret row index, and applies this projection. Let \eqn{y_i} be the observed
-response and \eqn{\hat y_{mi}} the projected OOF prediction for training row
+caret row index, and applies this projection.
+
+The first requested method that reaches this scoring step for a cell stores
+its ordered \code{obs} vector as the cell's shared reference response. Every later
+method is scored against that stored vector rather than its own merged
+\code{obs}. The function does not verify cross-method equality of observations,
+row indices, or vector lengths. Consequently, the supplied method order is
+material when fitted objects contain inconsistent saved OOF rows. In the
+equations below, \eqn{y_i} denotes this first-method reference vector and
+\eqn{\hat y_{mi}} the projected OOF prediction for method \eqn{m} and row
 \eqn{i=1,\ldots,n}. The reported scores are
 \deqn{\mathrm{RMSE}_m=\left[n^{-1}\sum_i(y_i-\hat y_{mi})^2\right]^{1/2},}
 \deqn{\mathrm{MAE}_m=n^{-1}\sum_i\left|y_i-\hat y_{mi}\right|,}
@@ -192,6 +216,12 @@ accumulated for a cell that skipped before writing can therefore first
 appear in a later cell's file. Columns are \code{method}, \code{set}, \code{dataset},
 \code{response}, \code{rmse}, \code{mae}, \code{r2}, \code{n}, and \code{p}. Existing assigned files are
 overwritten.
+
+After the OOF pass, every CSV in \code{.path.metrics} is row-bound to determine
+which base methods are eligible for unseen-row prediction. Stale or unrelated
+compatible rows can therefore affect method discovery even though ensemble
+weights come only from the current call's cell-local score lists. A clean,
+dedicated metrics directory is required for an isolated evaluation.
 
 Each predicted cell writes
 \code{.path.response/response_dataset.csv} with one row per unseen row and

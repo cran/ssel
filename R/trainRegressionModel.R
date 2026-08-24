@@ -401,6 +401,15 @@ trainRegressionModel <- function(
       }
       DT.test <- fread(.file.test, stringsAsFactors = TRUE,
                        na.strings = c("", "N/I", "N/A", "-"))
+      # buildDataset() Stage 9 can drop every TEST row (NA in any predictor;
+      # routine in spatial/chain datasets where a companion feature lacks
+      # coverage). fread() types a header-only CSV all-logical, so predict()
+      # would abort the whole run with a type mismatch. Skip the cell; the
+      # Stage 2 metrics and OOF for it stand.
+      if (nrow(DT.test) == 0L) {
+        .WARN(sprintf("%s: TEST vac\u00edo - se omite predicci\u00f3n", .set))
+        next
+      }
 
       .file.train <- file.path(.path.data, paste0(.set, "_TRAIN.csv"))
       if (!file.exists(.file.train)) {
@@ -575,31 +584,34 @@ which.nonnum <- function(x) {
 
 
 #' @export
-removeOutliersIQR<- function(.data,  n = 3,q=3) {
-  # remove rows that are beyond 'threshold' * IQR from Q1/Q3
-  MODEL<- train(
+removeOutliersIQR <- function(.data, n = 3, q = 3) {
+  # Drop rows that fall outside the IQR envelope of the most important numeric
+  # predictors. A row is dropped when it is an outlier in ANY of them, so the
+  # envelopes narrow the surviving set together rather than in isolation.
+  MODEL <- train(
     y ~ .,
-    data       = .data,
-    method     = "ranger",
+    data      = .data,
+    method    = "ranger",
     trControl = trainControl(method = "none"),
-    importance = "impurity" # or "permutation" for ranger
+    importance = "impurity"
   )
-  IVCOL <- varImp(MODEL, useModel = TRUE, nonpara=FALSE, scale=FALSE)$importance
-  if (is.null(IVCOL))  return(.data) 
-  
-  IVCOL <- as.data.table(IVCOL, keep.rownames=TRUE)
-  IVCOL <- IVCOL[order(Overall, decreasing=TRUE)]
-  COLS <- head(IVCOL$rn,n)
-  for (col in COLS) {
-    if (!is.numeric(.data[[col]])) next
-    Q1 <- quantile(.data[[col]], 0.25, na.rm = TRUE)
-    Q3 <- quantile(.data[[col]], 0.75, na.rm = TRUE)
-    IQR <- Q3 - Q1
-    lowBound <- Q1 - q * IQR
-    highBound <- Q3 + q * IQR
-    df <- .data[.data[[col]] >= lowBound & .data[[col]] <= highBound, ]
+  IVCOL <- as.data.table(
+    varImp(MODEL, useModel = TRUE, nonpara = FALSE, scale = FALSE)$importance,
+    keep.rownames = TRUE
+  )
+  COLS <- head(IVCOL[order(-Overall)]$rn, n)
+  COLS <- COLS[vapply(COLS, function(s) is.numeric(.data[[s]]), logical(1L))]
+
+  OUT <- as.data.table(.data)
+  for (s in COLS) {
+    x <- OUT[[s]]
+    Q <- quantile(x, c(0.25, 0.75), na.rm = TRUE)
+    Spread <- Q[2L] - Q[1L]
+    # A missing value cannot be judged against the envelope, so its row stays:
+    # this function removes outliers, not incomplete rows.
+    OUT <- OUT[is.na(x) | (x >= Q[1L] - q * Spread & x <= Q[2L] + q * Spread)]
   }
-  return(as.data.table(df))
+  OUT
 }
 
 
