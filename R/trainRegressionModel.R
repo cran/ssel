@@ -67,6 +67,11 @@ trainRegressionModel <- function(
     .preProcess    = NULL,
     .metric        = "RMSE"
 ) {
+  .keysOld <- options(datatable.keepLeadingZeros = TRUE)
+  on.exit(options(.keysOld), add = TRUE)
+  .checkBound(.min, ".min")
+  .checkBound(.max, ".max")
+
   # ---------------------------------------------------------
   # Stage 1: TRAIN MODELS ONLY if (TRAIN == TRUE) ----
   # ---------------------------------------------------------
@@ -75,7 +80,15 @@ trainRegressionModel <- function(
     
     Cluster <- .registerBackend(PARALLEL)
     if (!is.null(Cluster)) on.exit(.stopBackend(Cluster), add = TRUE)
-    
+
+    # caret::createFolds() groups a numeric response by its cut() labels and
+    # orders them with factor(), which follows the session collation. glibc
+    # ignores punctuation and assigns different folds than ICU or C, so the
+    # fits run under the C collation and the session's is restored on exit.
+    Collation <- Sys.getlocale("LC_COLLATE")
+    on.exit(Sys.setlocale("LC_COLLATE", Collation), add = TRUE)
+    Sys.setlocale("LC_COLLATE", "C")
+
     .trControl <- trainControl(
       method        = "cv",
       number        = .numberCV,
@@ -110,7 +123,7 @@ trainRegressionModel <- function(
         # AND the hash matches - ensuring chain iterations always retrain
         # when training features change (new chain columns).
         .feat.hash <- substr(
-          digest::digest(sort(setdiff(names(DT), "y")), algo = "md5", serialize = TRUE),
+          digest::digest(.portableSort(setdiff(names(DT), "y")), algo = "md5", serialize = TRUE),
           1L, 8L)
 
         # Train each method
@@ -381,7 +394,7 @@ trainRegressionModel <- function(
   
   
   # Bind metrics from different sets
-  FILES <- list.files(.path.metrics, pattern = "\\.csv$", full.names = TRUE)
+  FILES <- .listFiles(.path.metrics, pattern = "\\.csv$", full.names = TRUE)
   DT.metrics <- rbindlist(lapply(FILES, fread), use.names = TRUE, fill = TRUE)
   
   
@@ -647,7 +660,7 @@ removeOutliersIQR <- function(.data, n = 3, q = 3) {
 detectOutliers <- function(DT,
                            threshold.mad   = 3.5,
                            threshold.lof   = 2.0,
-                           threshold.cooks = Inf,    # Inf = disabled; 4/nrow(DT) = standard
+                           threshold.cooks = Inf,    # Nonfinite selects 4/n when use.cooks is TRUE.
                            minPts          = 5,
                            use.cooks       = FALSE) {
   DT <- data.table::copy(DT)

@@ -1,0 +1,66 @@
+{
+  "operations": [
+    "buildDataset",
+    "trainModel",
+    "trainRegressionModel",
+    "predictModel",
+    "modelPipeline",
+    "chainPipeline",
+    "semiSupervisedPipeline",
+    "oofEnsemble",
+    "auditQuantiles",
+    "auditOverfit",
+    "aggregateResponses",
+    "postProcess",
+    "extractChainImportance",
+    "activeByImportance",
+    "activeByShadow",
+    "computeActiveByImportance",
+    "detectOutliers",
+    "removeOutliersIQR",
+    "toNumeric",
+    "which.nonnum"
+  ],
+  "aliases": {
+    "model": "modelPipeline",
+    "chain": "chainPipeline",
+    "post": "postProcess"
+  },
+  "vectorArguments": [
+    "colsId",
+    "features",
+    "responses",
+    "datasets",
+    "methods",
+    "responsesActive",
+    "location",
+    "locationSources",
+    "COLS.id",
+    "METHODS",
+    "PPROC",
+    ".responses",
+    ".datasets",
+    ".methods",
+    ".preProcess",
+    ".deliverable_datasets",
+    ".sort_keys",
+    "allResponses",
+    "probs",
+    "x"
+  ],
+  "tableArguments": [
+    "DT",
+    ".data",
+    "importanceDT",
+    "IMP"
+  ],
+  "historyArgument": "history",
+  "fileOrientedOperations": [
+    "buildDataset",
+    "trainModel",
+    "modelPipeline",
+    "chainPipeline",
+    "aggregateResponses",
+    "postProcess"
+  ]
+}

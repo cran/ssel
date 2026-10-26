@@ -32,6 +32,48 @@ test_that("trainRegressionModel skips constant-response cells clearly", {
   expect_length(list.files(Response, pattern = "\\.csv$"), 0L)
 })
 
+test_that("trainRegressionModel fits under the C collation and restores the session's", {
+  Collation <- Sys.getlocale("LC_COLLATE")
+  on.exit(Sys.setlocale("LC_COLLATE", Collation), add = TRUE)
+  # A collation the host lacks returns "" with a warning and changes nothing.
+  Session <- suppressWarnings(Sys.setlocale("LC_COLLATE", "en_US.UTF-8"))
+  skip_if(!nzchar(Session), "en_US.UTF-8 collation is unavailable")
+
+  Root <- tempfile("ssel-collate-")
+  on.exit(unlink(Root, recursive = TRUE), add = TRUE)
+  Train    <- file.path(Root, "train")
+  Model    <- file.path(Root, "model")
+  Metrics  <- file.path(Root, "metrics")
+  Response <- file.path(Root, "response")
+  for (Dir in c(Train, Model, Metrics, Response)) dir.create(Dir, recursive = TRUE)
+  data.table::fwrite(
+    data.table::data.table(x = seq_len(12L), y = 1.5 * seq_len(12L)),
+    file.path(Train, "target_D_TRAIN.csv")
+  )
+
+  Seen <- NA_character_
+  testthat::local_mocked_bindings(
+    train = function(...) {
+      Seen <<- Sys.getlocale("LC_COLLATE")
+      stop("mocked fit")
+    },
+    .package = "ssel"
+  )
+
+  expect_warning(
+    suppressMessages(
+      trainRegressionModel(.path.data = Train, .path.model = Model,
+                           .path.metrics = Metrics, .path.response = Response,
+                           TRAIN = TRUE, PARALLEL = FALSE,
+                           .responses = "target", .datasets = "D",
+                           .methods = "lm")
+    ),
+    "training failed: mocked fit"
+  )
+  expect_identical(Seen, "C")
+  expect_identical(Sys.getlocale("LC_COLLATE"), Session)
+})
+
 test_that("trainRegressionModel caps and cleans its parallel backend", {
   Workers <- NA_integer_
   Stopped <- FALSE

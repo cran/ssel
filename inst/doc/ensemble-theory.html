@@ -508,26 +508,21 @@ fitted objects carry inconsistent OOF rows, learner order becomes
 material and the cell should be treated as invalid input rather than as
 a comparable ensemble.</p>
 <p>For each retained learner in cell <span class="math inline">\((r,d)\)</span>, evaluation reports</p>
-<p><span class="math display">\[
-\operatorname{RMSE}_{mrd}
-=\left\{\frac{1}{n}\sum_i(y_i-\hat y_{mi}^{OOF})^2\right\}^{1/2}.
-\]</span></p>
-<p><span class="math display">\[
-R^2_{mrd}=\operatorname{cor}(y,\hat y_m^{OOF})^2.
-\]</span></p>
+<p><span class="math display">\[\operatorname{RMSE}_{mrd}
+=\left\{\frac{1}{n}\sum_i(y_i-\hat
+y_{mi}^{OOF})^2\right\}^{1/2}.\]</span></p>
+<p><span class="math display">\[R^2_{mrd}=\operatorname{cor}(y,\hat
+y_m^{OOF})^2.\]</span></p>
 <p>The package defines two cell-local weighting policies:</p>
-<p><span class="math display">\[
-w^{R2}_{mrd}=\frac{R^2_{mrd}}{\sum_jR^2_{jrd}},
+<p><span class="math display">\[w^{R2}_{mrd}=\frac{R^2_{mrd}}{\sum_jR^2_{jrd}},
 \qquad
 w^{RMSE}_{mrd}
 =\frac{\operatorname{RMSE}_{mrd}^{-1}}
-       {\sum_j\operatorname{RMSE}_{jrd}^{-1}}.
-\]</span></p>
+       {\sum_j\operatorname{RMSE}_{jrd}^{-1}}.\]</span></p>
 <p>The corresponding OOF ensemble is</p>
-<p><span class="math display">\[
-\hat y_{ird}^{g,OOF}=\sum_m w^g_{mrd}\hat y_{mi}^{OOF},
-\qquad g\in\{R2,RMSE\}.
-\]</span></p>
+<p><span class="math display">\[\hat y_{ird}^{g,OOF}=\sum_m
+w^g_{mrd}\hat y_{mi}^{OOF},
+\qquad g\in\{R2,RMSE\}.\]</span></p>
 <p>These normalized scores are package policies, not estimates of
 theoretically optimal ensemble weights and not guarantees that an
 ensemble improves every learner.</p>
@@ -555,24 +550,18 @@ projected OOF predictions and defines independent inverse-RMSE weights
 jointly <span class="math inline">\(h=(i,o)\)</span>, where <span class="math inline">\(i\)</span> is the caret row index and <span class="math inline">\(o\)</span> the averaged saved observation. With
 <span class="math inline">\(A_h\)</span> denoting learners available at
 that key,</p>
-<p><span class="math display">\[
-\hat y_h^{OOF}=\Pi_{[a,b]}\!\left(
+<p><span class="math display">\[\hat y_h^{OOF}=\Pi_{[a,b]}\!\left(
 \frac{\sum_{m\in A_h}\tilde w_{mrd}\tilde y_{mh}}
      {\sum_{m\in A_h}\tilde w_{mrd}}
-\right).
-\]</span></p>
-<p><span class="math display">\[
-e_h=o-\hat y_h^{OOF}.
-\]</span></p>
+\right).\]</span></p>
+<p><span class="math display">\[e_h=o-\hat y_h^{OOF}.\]</span></p>
 <p>Available learners are renormalized row by row. If saved observations
 differ between learners for one row index, they form different joint
 keys; repeated row indices and sample identifiers can therefore be
 legitimate output rows.</p>
 <p>For valid bounds <span class="math inline">\(a\le b\)</span>, the
 interval projection used above is</p>
-<p><span class="math display">\[
-\Pi_{[a,b]}(z)=\min\{b,\max\{a,z\}\}.
-\]</span></p>
+<p><span class="math display">\[\Pi_{[a,b]}(z)=\min\{b,\max\{a,z\}\}.\]</span></p>
 <p>This is the ordinary projection onto a closed interval <span class="citation">(<a href="#ref-parikh2014">Parikh and Boyd
 2014</a>)</span>. Bounds are not proactively reordered, so this name
 applies only when <span class="math inline">\(a\le b\)</span>.</p>
@@ -581,22 +570,17 @@ applies only when <span class="math inline">\(a\le b\)</span>.</p>
 <h2>Signed residual offsets</h2>
 <p><code>auditQuantiles()</code> pools reconstructed residual rows
 separately within each cell. For <span class="math inline">\(p\in\{0.50,0.90,0.95\}\)</span>, sort the <span class="math inline">\(n\)</span> residuals and define</p>
-<p><span class="math display">\[
-H=(n-1)p+1.
-\]</span></p>
-<p><span class="math display">\[
-j=\lfloor H\rfloor,\qquad \gamma=H-j.
-\]</span></p>
+<p><span class="math display">\[H=(n-1)p+1.\]</span></p>
+<p><span class="math display">\[j=\lfloor H\rfloor,\qquad
+\gamma=H-j.\]</span></p>
 <p>R’s <a href="https://www.stat.ethz.ch/R-manual/R-devel/library/stats/html/quantile.html">type-7
 sample quantile</a> is then</p>
-<p><span class="math display">\[
-q_{p,rd}=(1-\gamma)e_{(j)}+\gamma e_{(j+1)},
-\]</span></p>
+<p><span class="math display">\[q_{p,rd}=(1-\gamma)e_{(j)}+\gamma
+e_{(j+1)},\]</span></p>
 <p>with the endpoint convention described by <span class="citation">Hyndman and Fan (<a href="#ref-hyndman1996">1996</a>)</span>. The values are signed,
 cell-pooled, and expressed in response units. Delivery helpers form</p>
-<p><span class="math display">\[
-Q_{p,ird}=\Pi_{[a,b]}\{\hat y_{ird}+q_{p,rd}\}.
-\]</span></p>
+<p><span class="math display">\[Q_{p,ird}=\Pi_{[a,b]}\{\hat
+y_{ird}+q_{p,rd}\}.\]</span></p>
 <p>These are descriptive point-plus-residual-offset estimates. They are
 not conditional predictive quantiles or intervals with a calibrated
 coverage guarantee. Coverage-guaranteed procedures such as jackknife+
@@ -608,18 +592,12 @@ which this estimator does not construct <span class="citation">(<a href="#ref-ba
 <p><code>predictModel()</code> first chooses one eligible cell per
 response. For <code>ensemble.RMSE</code> it takes the first minimum-RMSE
 row; for <code>ensemble.R2</code> it takes the first maximum <span class="math inline">\(R^2\)</span> row:</p>
-<p><span class="math display">\[
-d_r^{RMSE}=\operatorname*{first\,argmin}_{d}\operatorname{RMSE}_{rd}.
-\]</span></p>
-<p><span class="math display">\[
-d_r^{R2}=\operatorname*{first\,argmax}_{d}R^2_{rd}.
-\]</span></p>
+<p><span class="math display">\[d_r^{RMSE}=\operatorname*{first\,argmin}_{d}\operatorname{RMSE}_{rd}.\]</span></p>
+<p><span class="math display">\[d_r^{R2}=\operatorname*{first\,argmax}_{d}R^2_{rd}.\]</span></p>
 <p><code>aggregateResponses()</code> applies a later and different rule.
 Its candidates are only unseen <code>ensemble.RMSE</code> points and
 reconstructed training OOF points. For each sample <span class="math inline">\(i\)</span> and response <span class="math inline">\(r\)</span>, it selects</p>
-<p><span class="math display">\[
-d^*_{ir}=\operatorname*{first\,argmax}_{d}R^2_{rd}.
-\]</span></p>
+<p><span class="math display">\[d^*_{ir}=\operatorname*{first\,argmax}_{d}R^2_{rd}.\]</span></p>
 <p>The selected candidate supplies all three signed offsets. Because the
 second rule is grouped by sample and excludes <code>ensemble.R2</code>
 candidates, the two selectors must not be interpreted as one global
@@ -630,11 +608,9 @@ best-dataset operation.</p>
 <p><code>auditOverfit()</code> compares projected in-sample RMSE with
 the arithmetic mean of the fitted caret object’s stored resample RMSE
 values:</p>
-<p><span class="math display">\[
-\operatorname{rel\_optimism}
+<p><span class="math display">\[\operatorname{rel\_optimism}
 =\frac{\overline{\operatorname{RMSE}}_{CV}-\operatorname{RMSE}_{in}}
-       {\max\{\overline{\operatorname{RMSE}}_{CV},10^{-9}\}}.
-\]</span></p>
+       {\max\{\overline{\operatorname{RMSE}}_{CV},10^{-9}\}}.\]</span></p>
 <p>Its labels and thresholds are ssel policy. The value is a diagnostic,
 not a hypothesis test, a universal measure of overfitting, or an input
 to final aggregation.</p>

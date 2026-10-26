@@ -49,8 +49,9 @@
 #'   [aggregateResponses()] output nevertheless always uses
 #'   \code{ensemble.RMSE} candidates.
 #' @param boundsMin,boundsMax Numeric response bounds forwarded through OOF,
-#'   point-prediction, audit, and aggregation paths. Their order and finiteness
-#'   are not validated.
+#'   point-prediction, audit, and aggregation paths. Each must be a single
+#'   non-\code{NA} numeric value; \code{Inf} and \code{-Inf} are allowed and
+#'   are the defaults. Their order and finiteness are not validated.
 #' @param iterSuffix \code{NULL}, or the suffix identifying prior-iteration
 #'   response features in [buildDataset()], commonly \code{".o"}.
 #' @param mode A value in \code{c("full", "train", "predict")}.
@@ -233,12 +234,16 @@ modelPipeline <- function(
     wipe            = NULL,
     shadow          = FALSE
 ) {
+  .keysOld <- options(datatable.keepLeadingZeros = TRUE)
+  on.exit(options(.keysOld), add = TRUE)
   stopifnot(is.character(key),       nzchar(key))
   stopifnot(is.character(responses), length(responses) > 0L)
   stopifnot(is.character(datasets),  length(datasets) > 0L)
   stopifnot(is.character(setCol),    nzchar(setCol))
   stopifnot(mode %in% c("full","train","predict"))
   if (!is.null(features)) stopifnot(is.character(features))
+  .checkBound(boundsMin, "boundsMin")
+  .checkBound(boundsMax, "boundsMax")
   if (!is.null(seed)) set.seed(seed)
 
   Y.PATTERN   <- paste0("^(", paste(responses, collapse = "|"), ")$")
@@ -251,6 +256,9 @@ modelPipeline <- function(
   # sub-iters call with WIPE=FALSE so previous responses' models / metrics
   # accumulate across sub-iters within the same chain iteration.
   if (WIPE) {
+    .guardWipe(c(.path.train, .path.metrics, .path.response, .path.summary,
+                 if (isTRUE(OVERRIDE)) c(.path.model, .path.export)),
+               .path.datasets)
     for (Dir in c(.path.train, .path.metrics, .path.response, .path.summary))
       { if (dir.exists(Dir)) unlink(Dir, recursive = TRUE); dir.create(Dir, recursive = TRUE) }
     if (isTRUE(OVERRIDE)) {

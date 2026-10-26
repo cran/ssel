@@ -20,8 +20,7 @@
 #'   rejected; their downstream behavior is described under input discovery.
 #' @param responses Character vector of target response columns. Exactly one is
 #'   required when `.path.iter` is supplied. A standalone call can receive
-#'   multiple responses, but its final serial evaluation has the failure mode
-#'   described under **Final serial re-emission**.
+#'   multiple responses; each final TEST split uses its fitted TRAIN schema.
 #' @param datasets Character dataset identifiers matched to CSV basenames.
 #'   Matching preserves [list.files()] order, not this vector's order.
 #' @param methods Character vector of caret method identifiers. The initial
@@ -203,31 +202,24 @@
 #' @section Final serial re-emission:
 #' After the loop and any restoration, the function rebuilds one TEST file for
 #' every declared dataset/response cell. It uses all rows from each original
-#' selected CSV whose key belongs to the first-file \eqn{U}, but takes feature
-#' names from the final round dataset. Missing declared datasets or required
+#' selected CSV whose key belongs to the first-file \eqn{U}, taking feature
+#' names from that cell's final TRAIN split, excluding its `y` column.
+#' Other target responses and discarded features do not enter TEST.
+#' Missing declared datasets or required
 #' feature columns fail through file/data.table operations.
-#'
-#' In a standalone multi-response call, full promotion rounds can finish before
-#' this final step fails. For target \eqn{r}, final TEST construction removes
-#' only `set` and \eqn{r}; other target-response columns remain. The supervised
-#' TRAIN split excludes those response columns, so [trainRegressionModel()]
-#' can find more than its required single TEST-only column: the key plus the
-#' other responses. Its exactly-one-key invariant then errors before successful
-#' final re-emission. The function does not proactively restrict standalone
-#' calls to one response.
 #'
 #' [trainRegressionModel()] then runs with `TRAIN = FALSE` and
 #' `PARALLEL = FALSE`, overwriting cell metric and response CSVs. For each cell,
 #' it asserts that the number of unique `ensemble.RMSE` keys equals
-#' `length(U)`. It does not compare key sets. Duplicate keys in \eqn{U} make the
-#' assertion fail even when all unique keys were emitted, while a different key
-#' set of the same cardinality could pass.
+#' `length(U)` and that the key sets agree. Duplicate keys in \eqn{U} make the
+#' assertion fail even when all unique keys were emitted.
 #'
-#' This serial pass does not rerun [auditQuantiles()], [predictModel()],
-#' [auditOverfit()], or [aggregateResponses()]. Consequently, the cell
-#' response files cover the original prediction pool, but summary and export
-#' products remain from the preceding full round and can still represent only
-#' its then-unpromoted remainder.
+#' The shared prediction-summary calculation and [aggregateResponses()] then
+#' refresh summaries and exports for the original prediction pool, including
+#' promoted keys. Aggregation uses the original selected datasets for observed
+#' and prediction row membership. The accepted fitted models, OOF residuals,
+#' [auditQuantiles()] offsets and [auditOverfit()] results are retained;
+#' refreshing the delivery does not fit or evaluate models again.
 #'
 #' @section Conditions, RNG, and side effects:
 #' Apart from the method-count and optional single-response/file assertions,
@@ -318,12 +310,16 @@ semiSupervisedPipeline <- function(.path.datasets, .path.work,
                                    epsRevert = 0.02, promotionCap = 0.8,
                                    boundsMin = -Inf, boundsMax = Inf,
                                    .path.iter = NULL, allResponses = responses) {
+  .keysOld <- options(datatable.keepLeadingZeros = TRUE)
+  on.exit(options(.keysOld), add = TRUE)
   stopifnot(length(methods) >= 2L)
+  .checkBound(boundsMin, "boundsMin")
+  .checkBound(boundsMax, "boundsMax")
 
   iterStar <- NA_integer_
   if (!is.null(.path.iter)) {
     stopifnot(length(responses) == 1L)
-    MFILES <- list.files(.path.iter, pattern = "^metrics_[0-9]+[.]csv$", full.names = TRUE)
+    MFILES <- .listFiles(.path.iter, pattern = "^metrics_[0-9]+[.]csv$", full.names = TRUE)
     stopifnot(length(MFILES) > 0L)
     MT <- rbindlist(lapply(MFILES, function(f)
       fread(f)[method == "ensemble.RMSE" & response == responses,
@@ -332,7 +328,7 @@ semiSupervisedPipeline <- function(.path.datasets, .path.work,
     .path.datasets <- file.path(.path.iter, sprintf("datasets_%d", iterStar))
   }
 
-  FILES <- list.files(.path.datasets, full.names = TRUE, pattern = "[.]csv$")
+  FILES <- .listFiles(.path.datasets, full.names = TRUE, pattern = "[.]csv$")
   FILES <- FILES[gsub("[.]csv$", "", basename(FILES)) %in% datasets]
   stopifnot(length(FILES) > 0L)
 
@@ -342,6 +338,7 @@ semiSupervisedPipeline <- function(.path.datasets, .path.work,
 
   .fitRound <- function(PSEUDO) {
     PATH.r <- file.path(.path.work, "round")
+    .guardWipe(PATH.r, .path.datasets)
     unlink(PATH.r, recursive = TRUE)
     dir.create(file.path(PATH.r, "datasets"), recursive = TRUE, showWarnings = FALSE)
     for (f in FILES) {
@@ -374,7 +371,7 @@ semiSupervisedPipeline <- function(.path.datasets, .path.work,
   }
 
   .predictions <- function(PATH.r) {
-    rbindlist(lapply(list.files(file.path(PATH.r, "response"), full.names = TRUE), fread),
+    rbindlist(lapply(.listFiles(file.path(PATH.r, "response"), full.names = TRUE), fread),
               use.names = TRUE, fill = TRUE)
   }
 
@@ -453,10 +450,11 @@ semiSupervisedPipeline <- function(.path.datasets, .path.work,
   # every ORIGINAL predict row and assert completeness.
   for (dn in datasets) {
     for (rp in responses) {
-      DT <- fread(file.path(.path.work, "round", "datasets", sprintf("%s.csv", dn)))
-      FEATS <- setdiff(names(DT), c("set", rp))
+      COLS <- names(fread(file.path(.path.work, "round", "train",
+                                   sprintf("%s_%s_TRAIN.csv", rp, dn)), nrows = 0L))
+      COLS <- c(key, setdiff(COLS, "y"))
       TEST <- fread(FILES[match(dn, gsub("[.]csv$", "", basename(FILES)))])[
-        get(key) %in% KEYS.U, FEATS, with = FALSE]
+        get(key) %in% KEYS.U, COLS, with = FALSE]
       fwrite(TEST, file.path(.path.work, "round", "train", sprintf("%s_%s_TEST.csv", rp, dn)))
     }
   }
@@ -470,7 +468,24 @@ semiSupervisedPipeline <- function(.path.datasets, .path.work,
   for (dn in datasets) for (rp in responses) {
     OUT <- fread(file.path(.path.work, "round", "response", sprintf("%s_%s.csv", rp, dn)))
     stopifnot(uniqueN(OUT[method == "ensemble.RMSE", get(key)]) == length(KEYS.U))
+    stopifnot(setequal(OUT[method == "ensemble.RMSE", get(key)], KEYS.U))
   }
+
+  .summarizePredictions(
+    pathMetrics = file.path(.path.work, "round", "metrics"),
+    pathResponse = file.path(.path.work, "round", "response"),
+    pathSummary = file.path(.path.work, "round", "summary"),
+    pathExport = file.path(.path.work, "round", "export"),
+    datasets = datasets, responses = responses, probs = c(0.50, 0.90, 0.95),
+    ensemble = "ensemble.RMSE", boundsMin = boundsMin, boundsMax = boundsMax,
+    pathIndex = NULL, deliverableDatasets = NULL
+  )
+  aggregateResponses(
+    .path.summary = file.path(.path.work, "round", "summary"),
+    .path.export = file.path(.path.work, "round", "export"),
+    .path.datasets = .path.datasets, key = key, responses = responses,
+    datasets = datasets, boundsMin = boundsMin, boundsMax = boundsMax
+  )
 
   list(history = HIST, promoted = PSEUDO, baselineR2 = HIST$oofR2[1L],
        finalR2 = bestR2, iterStar = iterStar)

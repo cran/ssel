@@ -1,0 +1,389 @@
+---
+title: "ssel command-line interface"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{ssel command-line interface}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+The `ssel` command calls the installed SSEL public API and shares its
+version. Every public function is available by its exact R name. The aliases
+`model`, `chain` and `post` remain available. The command reads the installed
+library's API facts.
+
+| Work | Operations |
+| --- | --- |
+| Complete workflows | `modelPipeline`, `chainPipeline`, `semiSupervisedPipeline` |
+| Splits, fits and predictions | `buildDataset`, `trainModel`, `trainRegressionModel`, `predictModel` |
+| OOF diagnostics | `oofEnsemble`, `auditQuantiles`, `auditOverfit` |
+| Delivery | `aggregateResponses`, `postProcess` |
+| Chain importance and gates | `extractChainImportance`, `activeByImportance`, `activeByShadow`, `computeActiveByImportance` |
+| Data utilities | `detectOutliers`, `removeOutliersIQR`, `toNumeric`, `which.nonnum` |
+
+`ssel --help` lists operations. `ssel OPERATION --help` renders that
+function's installed R documentation. `ssel --version` prints
+`ssel <version>`, the version of the package actually loaded; the command has
+no version of its own. API access does
+not imply that every learner, dataset or scientific configuration has been
+validated.
+
+## Library boundary
+
+The adapter owns terminal arguments, JSON/RDS decoding, table schemas, result
+serialization and exit status. Its private R helpers implement those interface
+contracts. Modeling, iteration, gates, diagnostics and transformations stay in
+the installed library. The adapter resolves exported functions and invokes them
+with their existing arguments; it does not source implementation files or
+introduce a second scientific pipeline.
+
+Project data builders and manifest interpretation remain in the consuming
+project. A project manifest is not automatically an SSEL argument specification.
+AR-S2J2J, for example, assembles its domains and datasets before calling SSEL.
+
+## Installation
+
+Use a complete source bundle containing `cli/` and `install/`. The R package
+alone does not install the terminal command. R must be installed.
+
+The normal macOS entry installs the package when missing and the CLI under
+the default prefix `/usr/local`:
+
+```bash
+sudo bash install/install.sh
+```
+
+Under sudo, every R process runs as the validated invoking user; R does not
+request elevation. The default builds and installs the package from the
+bundle's `lib/` together with the CLI, even when the installed version is
+equal or newer; `--tarball` selects a recorded package artifact instead of
+building the checkout.
+On Windows the entry is native PowerShell without elevation, with default
+prefix `%LOCALAPPDATA%\Programs\ssel`:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File install\install.ps1
+```
+
+Equivalent options are `-Yes`, `-Check`, `-Library`, `-Dependency`,
+`-Tarball` and `-Prefix`; `-NoPath` prevents a user PATH change. The bundle's
+`install/USAGE.md` is the installation manual and defines these separate
+operations.
+
+The public operation installs the package and the CLI together; there is no
+component selection. The examples below therefore send both to temporary
+destinations, so they leave an existing installation untouched. Run them from
+the bundle root. They do not alter shell profiles.
+
+macOS, in Bash:
+
+```bash
+work="$(mktemp -d)"
+library="$work/library"
+prefix="$work/ssel"
+mkdir -p "$library"
+bash install/install.sh --yes --library "$library" --prefix "$prefix"
+export R_LIBS="$library${R_LIBS:+:$R_LIBS}"
+export PATH="$prefix/bin:$PATH"
+ssel --version
+```
+
+Windows, in native PowerShell:
+
+```powershell
+$Work = Join-Path ([System.IO.Path]::GetTempPath()) ([guid]::NewGuid().ToString())
+$Library = Join-Path $Work 'library'
+$Prefix = Join-Path $Work 'ssel'
+New-Item -ItemType Directory -Path $Library -Force | Out-Null
+& .\install\install.ps1 -Yes -Library $Library -Prefix $Prefix -NoPath
+$env:R_LIBS = (@($Library, $env:R_LIBS) | Where-Object { $_ }) -join ';'
+$env:PATH = (Join-Path $Prefix 'bin') + ';' + $env:PATH
+& (Join-Path $Prefix 'bin\ssel.ps1') --version
+```
+
+Runtime commands never install dependencies. Compatible dependencies visible
+to R remain available through normal library resolution.
+
+The installed payload contains platform launchers under `PREFIX/bin`, the
+runtime under `PREFIX/libexec/ssel`, an uninstaller and an ownership receipt.
+The launchers resolve R when they run; the receipt records the R that
+installed them as history, not as the interpreter to reuse.
+It works after the source bundle is removed. Existing CLI paths and linked
+`bin`/`libexec` directories cause a conflict.
+On Windows use `ssel.ps1` when the working directory is a UNC path;
+cmd.exe cannot preserve a UNC working directory.
+
+To remove the temporary CLI, after using it:
+
+```bash
+bash "$prefix/libexec/ssel/install/uninstall.sh" --prefix "$prefix" --library "$library"
+```
+
+```powershell
+& (Join-Path $Prefix 'libexec\ssel\install\uninstall.ps1') -Prefix $Prefix -Library $Library
+```
+
+A default macOS installation is removed with `sudo bash install/uninstall.sh`;
+after deleting the checkout, use the installed copy
+`sudo bash /usr/local/libexec/ssel/install/uninstall.sh`.
+Removal checks owned file checksums first. Modified or missing files stop
+removal. R packages and unrelated files remain.
+
+## Inputs and returned objects
+
+```text
+ssel OPERATION --spec FILE.json|FILE.rds [--output RESULT.rds|RESULT_DIR] [--seed N] [--root DIR]
+```
+
+A JSON specification is one object with exact R argument names. Omitted
+arguments retain R defaults. Scalars and declared vector arguments become R
+values/vectors; nested objects remain lists. A JSON `null` supplies `NULL`.
+Null elements within a vector become missing values. Empty character vectors
+and nested gate histories are supported. The exact texts `"Inf"`, `"-Inf"`
+and `"NaN"` decode to their numeric values only where the argument default
+is numeric; anywhere else they remain ordinary strings.
+
+`--seed N` seeds the R process before the operation, so independent
+invocations of stochastic learners are reproducible.
+
+An RDS specification is a plain named list of arguments. It preserves native
+R types, tables, factors, empty vectors, nested lists, `NULL`, `NA`, `NaN`
+and infinities. In JSON, any argument can instead be
+`{"$rds":"value.rds"}` to read that native object. Values are passed as data,
+without evaluating stored expressions.
+
+Table arguments `DT`, `.data`, `importanceDT` and `IMP` also accept
+`{"$csv":"table.csv","colClasses":{"column":"character"},"na.strings":["NA"]}`.
+Declare every CSV column and its class, and the exact missing-value convention.
+Use RDS when factor levels or other R attributes matter.
+
+Data-returning functions require `--output`. This includes
+`trainRegressionModel` in both modes and the complete semi-supervised history
+and promotion return. With an `.rds` path the full result, including an
+invisible R return, is saved as RDS. With a path without extension, a new
+directory is created holding `result.json` — the result's shape and types,
+with `NA` as null and `NaN`, `Inf` and `-Inf` as their exact texts — plus one
+CSV per table with column classes and factor levels recorded in the manifest.
+Classes without a portable form refuse the conversion; use `.rds` for them.
+The six file-oriented operations `buildDataset`, `trainModel`,
+`modelPipeline`, `chainPipeline`, `aggregateResponses` and `postProcess`
+allow output to be omitted. Outputs must be new paths in an existing
+directory; this restriction applies only to `--output`, not to files written
+by the library. The six-operation classification controls whether `--output`
+is optional; other operations also write files, as described below.
+
+`--output` saves the function's return **after the operation runs**. It does
+not select or redirect the operation's working directories. For example,
+`trainRegressionModel` requires it even with `TRAIN = TRUE`, which writes
+models and returns `NULL`. Changing `--output` and invoking the command again
+executes the operation again; it does not convert a previously saved result.
+
+`--root DIR` selects an existing project directory. Relative paths resolve
+from that directory: the specification itself, its CSV/RDS references,
+operation arguments and `--output`. Without `--root`, they resolve from the
+**working directory**. Moving the specification does not change that base;
+absolute paths remain absolute. For example, from outside a project:
+
+```sh
+ssel toNumeric --root /path/to/project --spec numeric.json --output numeric-result.rds
+```
+
+The selected root is also the working directory seen by the library's
+existing validation of destinations that a pipeline may wipe.
+
+## Files written by each operation
+
+The paths below are arguments inside the specification, resolved from
+`--root` or the working directory as described above. A name such as
+`.path.export` is a caller-selected directory, not a fixed `data/export`
+location. The `model`, `chain` and `post` aliases have the effects of
+`modelPipeline`, `chainPipeline` and `postProcess` respectively.
+
+### Splits, models, diagnostics and delivery
+
+Here `<response>`, `<dataset>` and `<method>` stand for the selected names.
+These functions do not recursively clear their output directories. Files
+they write can replace existing files at the same paths; skipped cells can
+leave earlier files in place.
+
+| Operation | Files read | Files written and rerun behavior |
+| --- | --- | --- |
+| `buildDataset` | Dataset CSVs in `.path.input`. | Writes `<response>_<dataset>_TRAIN.csv`, `_TEST.csv` and `_TRAIN_ids.csv` in the existing `.path.train` directory. Replaces the splits it emits; it does not create that directory or remove obsolete splits. |
+| `trainModel` | TRAIN splits in `.path.train`, and cached models/hashes in `.path.model`. | Calls `trainRegressionModel` with `TRAIN = TRUE`: writes model/hash pairs in `.path.model`. Creates missing `.path.model`, `.path.metrics` and `.path.response` directories when their parents exist; this training step does not emit metrics or predictions. `OVERRIDE` follows the cache rule below. |
+| `trainRegressionModel` | With `TRAIN = TRUE`, TRAIN splits in `.path.data` and cached models/hashes. With `TRAIN = FALSE`, TRAIN/TEST splits, models and metrics. | With `TRAIN = TRUE`, saves `.path.model/<method>_<response>_<dataset>.Rds` and its `.Rds.hash` companion. With `TRAIN = FALSE`, writes `<response>_<dataset>.csv` in `.path.metrics` and `.path.response`. The needed destination directories must already exist. |
+| `predictModel` | Splits in `.path.train`, models in `.path.model`, metrics/response CSVs, and `.path.summary/prediction_quantiles.csv` from `auditQuantiles`. Optionally `.file.index`. | Runs `trainRegressionModel` with `TRAIN = FALSE`, then replaces `.path.summary/metrics.csv`, `response_long.csv` and nonempty `.path.export/<dataset>.csv` deliveries. Creates missing summary/export directories when their parents exist; metrics/response directories must already exist. When `.file.index` exists, it also joins location data into **every CSV in summary/export containing the index key**, rewriting those files. |
+| `auditQuantiles` | Models in `.path.model`, TRAIN splits/ID sidecars in `.path.train`, and `.path.datasets` for ID recovery when a sidecar is absent; existing summary residuals if present. | Creates `.path.summary` as needed. Rewrites `residuals_oof.csv`, retaining previous rows for responses absent from the reconstructed batch, then recomputes `prediction_quantiles.csv` from the combined residuals. No reconstructed rows is an error before either CSV is written. |
+| `auditOverfit` | Models in `.path.model` and TRAIN splits in `.path.train`. | Creates `.path.summary` as needed and writes `overfit.csv` for the reconstructed audit. This replaces the table rather than merging responses. If the audit returns a column-less empty table, `fwrite` does not replace an earlier file; read the warnings before treating that file as a current result. |
+| `aggregateResponses` | `.path.summary/{response_long,metrics,prediction_quantiles,residuals_oof}.csv`, declared dataset CSVs in `.path.datasets`, and earlier `Yo.csv`/`Y.csv` when present. | Rewrites `.path.export/Yo.csv`, retaining responses absent from the new prediction rows. Writes `.path.export/X.csv` and `Xo.csv` from the last declared dataset whose file exists; with no dataset file, warns and leaves earlier X files in place. The export directory must exist. When `.path.iter` is supplied, creates it as needed and merges/replaces response columns in `Y.csv`. |
+| `postProcess` | `.path.export/Yo.csv`, `.path.summary/{response_long,residuals_oof,metrics,prediction_quantiles}.csv`, and `locationSources`. Their defaults are `data/domains/index.csv`, `.path.export/X.csv` and `.path.export/Xo.csv`. | Writes or replaces `.path.export/predictions.csv` and `audit.csv`. It reads but does not rewrite `Yo.csv` or the summaries. |
+
+In training mode, `OVERRIDE = FALSE` skips a model only when both its RDS
+and hash file exist and the stored hash matches the sorted predictor names.
+This is a **feature-name check**, not a check of training values, tuning or
+all model settings. A missing or different hash triggers fitting and may
+replace the model. `OVERRIDE = TRUE` requests fitting regardless of that
+cache; a failed fit is reported and does not replace the existing model.
+
+### Workflow cleanup and iteration state
+
+`modelPipeline` (`model`) reads `.path.datasets`, rebuilds splits in
+`.path.train` in every mode, and uses the corresponding destinations from
+the table above. Its cleanup policy is:
+
+| `mode` | With `wipe = NULL` (default) or `TRUE` | Work after cleanup |
+| --- | --- | --- |
+| `full` (default) | Recursively removes `.path.train`, `.path.metrics`, `.path.response`, `.path.summary`, `.path.model` and `.path.export`. | Rebuilds splits, fits, audits, predicts and aggregates. |
+| `train` | Recursively removes `.path.train`, `.path.metrics`, `.path.response` and `.path.summary`; retains model/export directories. | Rebuilds splits and fits under `OVERRIDE = FALSE`. |
+| `predict` | Recursively removes `.path.train`, `.path.metrics`, `.path.response` and `.path.summary`; retains model/export directories. | Rebuilds splits, audits existing models, predicts and aggregates. |
+
+With `wipe = FALSE`, none of those directory trees is removed, but individual
+split/product files can still be replaced or merged. Training then uses
+`OVERRIDE = FALSE`. Missing destination directories are created recursively.
+An optional `.path.iter` receives `Y.csv` during aggregation; this operation
+does not clear that directory. `modelPipeline` does not call `postProcess`.
+
+`chainPipeline` (`chain`) uses the same dataset and output arguments plus
+`.path.iter`. A fresh chain (`resume = FALSE`, the default) recursively
+removes `.path.iter` and runs a full model pass. Each Jacobi iteration runs
+another full pass; each Gauss-Seidel sweep clears the six model output
+directories once, then accumulates its response substeps without clearing
+them again. The chain writes augmented `datasets_<n>/`, `Y.csv`, `Y<n>.csv`,
+`Yo<n>.csv`, `metrics_<n>.csv`, `summary_<n>/` snapshots and
+`convergence.csv` under `.path.iter`. Summary snapshots replace the same
+snapshot directory; convergence rows are appended for continued iterations.
+
+`resume = TRUE` continues only when both `.path.iter/convergence.csv` and
+`.path.iter/Y.csv` exist. If either is absent, it takes the fresh-chain path,
+including deletion of `.path.iter`. If both exist but
+`.path.summary/metrics.csv` is missing, it stops instead. Later continuation
+and final assembly also consume the saved snapshots. Resume still replaces
+the model-stage outputs as iterations run; it is not an append-only operation.
+At completion, `Yo.csv` and the five summary CSVs are assembled from the
+selected iteration for each response. Models and `.path.iter/Y.csv` retain
+the last iteration, not that assembled per-response selection.
+
+`semiSupervisedPipeline` reads `.path.datasets` and writes under
+`.path.work/round/`. Before **every fit round**, including its initial fit
+and a fit restoring accepted pseudo-labels after rejection, it recursively
+removes that `round` directory. It recreates `datasets`, `train`, `model`,
+`metrics`, `response`, `summary` and `export` there, then re-emits final
+predictions over the original prediction pool. It does not retain a separate
+product tree per round; `--output` saves its returned history and promotions.
+When `.path.iter` is supplied, the function reads its `metrics_<n>.csv`
+files and selects `datasets_<n>/` there as its source instead of the supplied
+`.path.datasets`. That iteration directory is an input to this operation.
+
+The workflows validate paths before their recursive cleanup: a wipe target
+cannot coincide with, contain or lie inside the source datasets directory,
+or coincide with or contain the working directory. Repeated canonical
+targets are also rejected where several destinations are checked together.
+This guard is not a general no-overwrite policy for the lower-level writers
+or for `wipe = FALSE`.
+
+### Operations without library-managed file output
+
+`oofEnsemble` reads models, TRAIN splits and ID sidecars, with dataset files
+as its fallback for ID recovery, and returns the reconstructed OOF table.
+`extractChainImportance` and `computeActiveByImportance` read models from
+`pathModel`. `activeByImportance`, `activeByShadow`, `detectOutliers`,
+`removeOutliersIQR`, `toNumeric` and `which.nonnum` operate on supplied
+objects. These nine operations do not write library-managed product files;
+the CLI writes their return to the required `--output`. This does not mean
+they all avoid fitting: `removeOutliersIQR` fits a model in memory.
+
+## Executable example
+
+After installation, the following R block creates a fresh directory and complete
+specifications from the public chain example. It only prepares inputs; the
+subsequent commands run the installed CLI. The fixture seed and learners are
+teaching choices, not scientific recommendations.
+
+```{r prepare-cli-example, eval = FALSE}
+Root <- tempfile("ssel-cli-example-")
+dir.create(file.path(Root, "datasets"), recursive = TRUE)
+setwd(Root)
+Data <- data.frame(
+  SampleID = c(paste0("S", 1:18), "P1", "P2"),
+  set = c(rep("train", 18), "predict", "predict"),
+  x = 1:20, z = rep(c(0, 1), 10),
+  targetA = c(1, 2.4, 1.8, 3.7, 2.9, 5.1, 4, 6.2, 5.4,
+              7, 6.1, 8.3, 7.2, 9.1, 8, 10.5, 9.4, 11.2, NA, NA),
+  targetB = c(2.2, 1.3, 3.6, 2.7, 4.1, 3.8, 5.7, 4.6, 6.5,
+              5.9, 7.8, 6.4, 8.6, 7.5, 9.9, 8.7, 10.4, 9.6, NA, NA)
+)
+utils::write.csv(Data, "datasets/demo.csv", row.names = FALSE, na = "")
+Spec <- list(
+  .path.datasets = "datasets", .path.train = "train", .path.model = "model",
+  .path.metrics = "metrics", .path.response = "response",
+  .path.summary = "summary", .path.export = "export",
+  key = "SampleID", responses = c("targetA", "targetB"), datasets = "demo",
+  methods = "lm", seed = 2026, features = c("x", "z")
+)
+jsonlite::write_json(Spec, "model.json", auto_unbox = TRUE, pretty = TRUE)
+Spec$.path.iter <- "iter"
+Spec$maxIter <- 1
+Spec$tol <- 0
+Spec$patience <- 2
+Spec$sweep <- "jacobi"
+jsonlite::write_json(Spec, "chain.json", auto_unbox = TRUE, pretty = TRUE)
+jsonlite::write_json(list(
+  .path.summary = "summary", .path.export = "export", key = "SampleID",
+  responses = c("targetA", "targetB"), location = c("x", "z"),
+  locationSources = "datasets/demo.csv"
+), "post.json", auto_unbox = TRUE, pretty = TRUE)
+jsonlite::write_json(list(x = c("1,25", "1 234", "x")),
+                     "numeric.json", auto_unbox = TRUE)
+saveRDS(list(
+  .path.datasets = "datasets", .path.work = "semi", key = "SampleID",
+  responses = c("targetA", "targetB"), datasets = "demo",
+  methods = c("lm", "glm"), seed = 2026, tau = 0.1, maxRounds = 1,
+  epsRevert = Inf, promotionCap = 0.5
+), "semi.rds")
+Root
+```
+
+From that printed directory, run these commands in order. The chain replaces
+the model-stage products using its own documented fresh-run policy.
+
+```sh
+ssel toNumeric --spec numeric.json --output numeric-result.rds
+ssel modelPipeline --spec model.json
+ssel chainPipeline --spec chain.json
+ssel postProcess --spec post.json
+ssel semiSupervisedPipeline --spec semi.rds --output semi-result.rds
+ssel semiSupervisedPipeline --spec semi.rds --output semi-portable
+```
+
+The last command executes the semi-supervised pipeline again, replacing
+`semi/round/`, and saves that run's return in portable form: a new
+`semi-portable/` directory with `result.json` and one CSV per table. Run it
+only if this second execution is intended.
+
+Back in R in the same directory, inspect the complete returned objects:
+
+```{r read-cli-results, eval = FALSE}
+readRDS("numeric-result.rds")
+readRDS("semi-result.rds")$history
+jsonlite::read_json("semi-portable/result.json")$result$kind  # "list"
+utils::read.csv("semi-portable/history.csv")
+utils::read.csv("export/predictions.csv")
+utils::read.csv("semi/round/export/Yo.csv")
+```
+
+## Effects and failures
+
+Choose `--output` separately from the paths the operation creates or clears.
+The CLI checks this return destination before calling the function, then
+refuses to save the return if the function has created that path. An existing
+parent checked before execution can also be removed by workflow cleanup.
+The CLI has no dry-run mode, transaction or rollback: a library error can
+leave partial products, and a serialization error happens after the library
+has run. Portable serialization can also leave a partially written result
+directory. Reinvoking the operation to change output format repeats its
+library effects.
+
+Malformed specifications, unknown or duplicate names, missing required
+arguments, invalid output destinations and library errors exit 1 with their
+cause. Warnings remain visible. A successful exit does not prove that every
+model cell had enough data to fit. Learner dependencies and scientific
+validation remain the public library's contracts.

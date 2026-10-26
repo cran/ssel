@@ -192,7 +192,8 @@ NULL
 #' @param .min,.max Numeric response bounds, in the response's units. They are
 #'   forwarded to the cell engine for API consistency; this wrapper invokes
 #'   training mode only, so the bounds do not alter fitting or training data.
-#'   Their order and finiteness are not validated.
+#'   Each must be a single non-\code{NA} numeric value; \code{Inf} and
+#'   \code{-Inf} are allowed. Their order and finiteness are not validated.
 #' @param .responses `NULL`, or a character vector restricting the discovered
 #'   response names. `NULL` fits every discovered response. Requested names
 #'   absent from the discovered files are ignored.
@@ -620,7 +621,9 @@ NULL
 #'   standard producer writes only 0.50, 0.90, and 0.95.
 #' @param .min,.max Numeric response bounds. Base point predictions are
 #'   projected by the evaluation engine; each point-plus-offset value is
-#'   projected again. Bound order and finiteness are not validated.
+#'   projected again. Each must be a single non-\code{NA} numeric value;
+#'   \code{Inf} and \code{-Inf} are allowed. Bound order and finiteness are
+#'   not validated.
 #' @param .ensemble A value in \code{c("ensemble.R2", "ensemble.RMSE")}.
 #'   It selects both the metric and method label used by the response-level
 #'   selector. The default is \code{"ensemble.R2"}.
@@ -875,11 +878,17 @@ NULL
 #' or out-of-range OOF index stops the call.
 #'
 #' @section Skips, ordering, and side effects:
-#' Nonmatching filenames, absent TRAIN files, unreadable models, failed
-#' best-tune merges, empty saved predictions, and models with no finite saved
-#' row are skipped silently. A cell can also disappear under the RMSE and
-#' row-availability rules above. If nothing remains, the function returns an
-#' empty zero-column \code{data.table}. Result order is an implementation
+#' A filename that does not match \code{.response_pattern} is filtered out
+#' silently: excluding responses is what the pattern is for. A file that does
+#' match and still cannot be used -- absent TRAIN file, unreadable model,
+#' failed best-tune merge, empty saved predictions, or no finite saved row --
+#' is skipped and reported by a warning naming the file and the reason. A
+#' cell can also disappear under the RMSE and row-availability rules above;
+#' a warning then reports how many of the cells were reconstructed. A third
+#' warning reports a reconstruction that produced nothing at all,
+#' distinguishing a pattern that matched no filename from matches that were
+#' all skipped. If nothing remains, the function returns an empty
+#' zero-column \code{data.table}. Result order is an implementation
 #' consequence and is not a sorting guarantee.
 #'
 #' The helper reads files but writes none, does not fit models, and does not
@@ -1002,7 +1011,10 @@ NULL
 #' The return is an invisible list named \code{residuals} and
 #' \code{quantiles}, containing exactly the two tables written in the current
 #' call. If OOF reconstruction returns no row, the function stops after
-#' creating \code{.path.summary} and before writing either assigned CSV.
+#' creating \code{.path.summary} and before writing either assigned CSV. Its
+#' message names the model directory, how many \code{.Rds} files it holds and
+#' the response pattern in force, and refers to the \code{oofEnsemble()}
+#' warnings for which files matched and why each was skipped.
 #' A failure after the residual write can leave that file updated while the
 #' quantile file remains from an earlier call or absent. Existing-file schema,
 #' file, quantile, data.table, and upstream reconstruction errors propagate.
@@ -1139,18 +1151,28 @@ NULL
 #' \code{flag}. RMSE and optimism fields have response units; relative optimism
 #' and R-squared fields are dimensionless.
 #'
-#' Nonmatching filenames, absent TRAIN files, unreadable models, failed
-#' predictions, prediction-length mismatches, and missing or empty resample
-#' tables are skipped silently. Numeric coercion and summary edge cases retain
-#' base R behavior, including missing or infinite fields and warnings. If no
-#' model survives, \code{data.table::fwrite()} warns and creates a zero-byte
-#' \code{overfit.csv}. With call-level reporting disabled, or with either
-#' global debug gate closed, the function then returns a zero-row, zero-column
-#' table. When \code{verbose = TRUE}, \code{aR.verbose = TRUE}, and
-#' \code{aR.quiet = FALSE}, flag-count evaluation references the absent
-#' \code{flag} column and errors after the file is written, so no list is
-#' returned. Malformed-column, data.table, and file errors not caught by the
-#' helper propagate.
+#' A filename that does not match \code{.response_pattern} is filtered out
+#' silently: excluding responses is what the pattern is for. A file that does
+#' match and still cannot be audited -- absent TRAIN file, unreadable model,
+#' failed prediction, prediction-length mismatch, or a missing or empty
+#' resample table -- is skipped and reported by a warning naming the file and
+#' the reason. A second warning reports an audit that produced nothing at all,
+#' distinguishing a pattern that matched no filename from matches that were
+#' all skipped. Numeric coercion and summary edge cases retain base R
+#' behavior, including missing or infinite fields and warnings.
+#'
+#' When no model survives, the written file depends on what was already
+#' there. \code{data.table::fwrite()} refuses a column-less table, so an
+#' existing \code{overfit.csv} is left untouched and still holds the previous
+#' run's verdict with nothing in the file itself to mark it stale; the
+#' warnings above are that signal. With no previous file, \code{fwrite()}
+#' warns and creates a zero-byte \code{overfit.csv}. With call-level
+#' reporting disabled, or with either global debug gate closed, the function
+#' then returns a zero-row, zero-column table. When \code{verbose = TRUE},
+#' \code{aR.verbose = TRUE}, and \code{aR.quiet = FALSE}, flag-count
+#' evaluation references the absent \code{flag} column and errors after the
+#' file is written, so no list is returned. Malformed-column, data.table, and
+#' file errors not caught by the helper propagate.
 #'
 #' The function reads models and training data, writes only
 #' \code{overfit.csv}, does not fit models, and neither sets a seed nor draws

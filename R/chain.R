@@ -47,7 +47,7 @@
   cols.chain <- setdiff(names(C), key)
   setnames(C, cols.chain, paste0(cols.chain, suffix))
 
-  FILES <- list.files(.path.datasets, pattern = "\\.csv$", full.names = TRUE)
+  FILES <- .listFiles(.path.datasets, pattern = "\\.csv$", full.names = TRUE)
   for (.f in FILES) {
     DS <- fread(.f)
     if (!key %in% names(DS))
@@ -82,7 +82,7 @@
   invisible(To)
 }
 
-# R5 guard: a declared response with no iteration-0 metric row has no fitted
+# Stitch guard: a declared response with no iteration-0 metric row has no fitted
 # cells in any iteration (every cell skipped for insufficient support:
 # constant response, no complete training rows). It has no delivery rows to
 # preserve, so the stitch excludes it with a warning instead of aborting on
@@ -91,11 +91,11 @@
   Fit <- intersect(responses, M0.tab$response)
   Missing <- setdiff(responses, Fit)
   if (length(Missing)) {
-    .WARN(sprintf("chainPipeline R5: no iteration-0 metrics for %s - excluded from stitch",
+    .WARN(sprintf("chainPipeline: no iteration-0 metrics for %s - excluded from stitch",
                   paste(Missing, collapse = ", ")))
   }
   if (length(Fit) == 0L) {
-    stop("chainPipeline R5: no response has iteration-0 metrics - nothing to stitch.",
+    stop("chainPipeline: no response has iteration-0 metrics - nothing to stitch.",
          call. = FALSE)
   }
   Best <- vapply(Fit, function(r) {
@@ -116,14 +116,14 @@
       Path <- file.path(.chainSummaryDir(.path.iter, Iter), File)
       if (!file.exists(Path)) {
         stop(sprintf(
-          paste0("chainPipeline R5: %s not found for response %s at iter %d. ",
+          paste0("chainPipeline: %s not found for response %s at iter %d. ",
                  "Rerun the chain with summary snapshot support before rendering stitched summaries."),
           Path, Response, Iter
         ), call. = FALSE)
       }
       DT <- fread(Path)
       if (!"response" %in% names(DT)) {
-        stop(sprintf("chainPipeline R5: %s has no response column.", Path), call. = FALSE)
+        stop(sprintf("chainPipeline: %s has no response column.", Path), call. = FALSE)
       }
       DT[response == Response]
     }), use.names = TRUE, fill = TRUE)
@@ -238,7 +238,9 @@
 #' \deqn{\{Z_k^{(t-1)}(u):k\in A^{(t-1)},k\ne j\}}
 #' for a prediction row.
 #'
-#' Gauss--Seidel targets are processed in sorted response-name order. The
+#' Gauss--Seidel targets are processed in sorted response-name order. That
+#' order does not depend on the session locale: ASCII case is ignored, and
+#' \code{_} and \code{.} sort before any other character. The
 #' augmented CSVs are rebuilt before every target. Earlier targets' new
 #' training-row values can therefore enter later targets through the evolving
 #' \code{Y.csv}; later targets retain their preceding-sweep values. In contrast,
@@ -448,6 +450,8 @@ chainPipeline <- function(
     chainStable  = 1L,
     resume       = FALSE
 ) {
+  .keysOld <- options(datatable.keepLeadingZeros = TRUE)
+  on.exit(options(.keysOld), add = TRUE)
   stopifnot(is.character(key),       nzchar(key))
   stopifnot(is.character(responses), length(responses) > 0L)
   stopifnot(is.character(datasets),  length(datasets) > 0L)
@@ -456,8 +460,14 @@ chainPipeline <- function(
   stopifnot(chainGate %in% c("fixed", "shadow"))
   stopifnot(is.numeric(maxIter), is.numeric(tol), is.numeric(patience))
   if (!is.null(features)) stopifnot(is.character(features))
+  .checkBound(boundsMin, "boundsMin")
+  .checkBound(boundsMax, "boundsMax")
   SHADOW <- (chainGate == "shadow")
   STABLE_K <- as.integer(chainStable)
+
+  .guardWipe(c(.path.train, .path.model, .path.metrics, .path.response,
+               .path.summary, .path.export, .path.iter),
+             .path.datasets)
 
   if (!dir.exists(.path.iter)) dir.create(.path.iter, recursive = TRUE)
   ITER_Y    <- file.path(.path.iter, "Y.csv")
@@ -516,7 +526,7 @@ chainPipeline <- function(
                   .path.summary, .path.export))
       { if (dir.exists(Dir)) unlink(Dir, recursive = TRUE); dir.create(Dir, recursive = TRUE) }
 
-    Order  <- sort(responses)
+    Order  <- .portableSort(responses)
     iterDS <- file.path(.path.iter, sprintf("datasets_%d", t))
     .INFO("[GS] sweep order:", paste(Order, collapse = ", "))
     for (i in seq_along(Order)) {
@@ -583,7 +593,7 @@ chainPipeline <- function(
     ActiveChain   <- ComputeActive(ActiveHistory)
     ActiveHistory <- list(ActiveChain)
     .KV("activeChain", sprintf("%d/%d [%s]", length(ActiveChain), length(responses),
-                               paste(sort(ActiveChain), collapse = ",")))
+                               paste(.portableSort(ActiveChain), collapse = ",")))
   }
 
   # Iter 1..maxIter (with chain features) ----
@@ -641,7 +651,7 @@ chainPipeline <- function(
     .KV("improving",   if (OK) crayon::green("YES") else crayon::yellow("no"))
     .KV("strikes",     sprintf("%d/%d", Strikes, patience))
     .KV("activeChain", sprintf("%d/%d [%s]", length(ActiveChain), length(responses),
-                               paste(sort(ActiveChain), collapse = ",")))
+                               paste(.portableSort(ActiveChain), collapse = ",")))
 
     if (Delta      <  tol)      { .OK ("Chain converged (Delta < tol)");                   break }
     if (DivStrikes >= patience) { .WARN("Chain: Delta increasing consistently - stopping"); break }
@@ -653,13 +663,13 @@ chainPipeline <- function(
 
   Conv <- fread(ITER_CONV)
 
-  # R5: per-response best-iteration stitch ----
+  # Per-response best-iteration stitch ----
   M0.tab <- fread(file.path(.path.iter, "metrics_0.csv"))[method == "ensemble.RMSE",
               .SD[which.min(rmse)], by = response]
 
   BestPerResp <- .chainBestIters(responses, M0.tab, Conv)
 
-  .HEAD("R5 - per-response best iter (stitched final pass)")
+  .HEAD("Per-response best iteration (stitched final pass)")
   for (r in names(BestPerResp)) {
     t.j  <- BestPerResp[[r]]
     r2.j <- if (t.j == 0L) M0.tab[response == r, r2] else Conv[iter == t.j, get(paste0("r2_", r))]
@@ -669,7 +679,7 @@ chainPipeline <- function(
   Yo.stitch <- rbindlist(lapply(names(BestPerResp), function(r) {
     t.j     <- BestPerResp[[r]]
     Yo.path <- file.path(.path.iter, sprintf("Yo%d.csv", t.j))
-    if (!file.exists(Yo.path)) stop(sprintf("chainPipeline R5: %s not found", Yo.path))
+    if (!file.exists(Yo.path)) stop(sprintf("chainPipeline: %s not found", Yo.path))
     fread(Yo.path)[response == r]
   }), use.names = TRUE)
   fwrite(Yo.stitch, file.path(.path.export, "Yo.csv"))

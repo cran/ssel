@@ -71,7 +71,10 @@ guarantee.
 The return is an invisible list named \code{residuals} and
 \code{quantiles}, containing exactly the two tables written in the current
 call. If OOF reconstruction returns no row, the function stops after
-creating \code{.path.summary} and before writing either assigned CSV.
+creating \code{.path.summary} and before writing either assigned CSV. Its
+message names the model directory, how many \code{.Rds} files it holds and
+the response pattern in force, and refers to the \code{oofEnsemble()}
+warnings for which files matched and why each was skipped.
 A failure after the residual write can leave that file updated while the
 quantile file remains from an earlier call or absent. Existing-file schema,
 file, quantile, data.table, and upstream reconstruction errors propagate.

@@ -17,8 +17,11 @@ buildDataset <- function(
     OUTLIER_REMOVAL = FALSE,
     SET_COL         = NULL,
     ITER_SUFFIX     = NULL,
-    .shadow         = FALSE   # R3: inject a Gaussian noise column "shadow" for null-importance gate
+    .shadow         = FALSE   # inject a Gaussian noise column "shadow" for the null-importance gate
 ) {
+  # Keys stay text: no fread of this call may strip leading zeros
+  .keysOld <- options(datatable.keepLeadingZeros = TRUE)
+  on.exit(options(.keysOld), add = TRUE)
   stopifnot(!is.null(Y.PATTERN), is.character(Y.PATTERN), nzchar(Y.PATTERN))
   stopifnot(!is.null(KEY),       is.character(KEY),       nzchar(KEY))
   stopifnot(!is.null(SET_COL),   is.character(SET_COL),   nzchar(SET_COL))
@@ -40,10 +43,22 @@ buildDataset <- function(
   # also excluded from features.
   COLS.id <- unique(c(COLS.id, SET_COL))
 
-  FILES <- list.files(.path.input, pattern = "\\.csv$", full.names = TRUE)
+  if (!dir.exists(.path.input)) {
+    stop("buildDataset: .path.input is not an existing directory: ", .path.input,
+         call. = FALSE)
+  }
+  FILES <- .listFiles(.path.input, pattern = "\\.csv$", full.names = TRUE)
+  if (!length(FILES)) {
+    stop("buildDataset: no .csv files found in .path.input: ", .path.input,
+         call. = FALSE)
+  }
 
   for (.file in FILES) {
     DatasetID <- tools::file_path_sans_ext(basename(.file))
+    if (grepl("_", DatasetID, fixed = TRUE)) {
+      stop("buildDataset: dataset names must not contain '_' (reserved as the ",
+           "split-file separator): ", DatasetID, call. = FALSE)
+    }
     .DEBUG("Dataset:", DatasetID)
 
     # Stage 1: Read ----
@@ -60,12 +75,14 @@ buildDataset <- function(
     }
 
     # Stage 4: Convert character columns that are actually numeric ----
-    for (col in COLS.chr) {
+    # Identifier columns are never coerced: keys like "031" keep their
+    # leading zeros end to end.
+    for (col in setdiff(COLS.chr, c(KEY, COLS.id))) {
       .v <- toNumeric(DATA[[col]])
       if (all(!is.na(.v) | is.na(DATA[[col]]))) DATA[, (col) := .v]
     }
 
-    # Stage 5: Shadow injection (R3 chainGate=shadow) ----
+    # Stage 5: Shadow injection (chainGate = "shadow") ----
     # Gaussian noise column reproducible across iters (fixed seed) so that
     # caret's variable-importance estimate of "shadow" becomes a per-model
     # null floor: a chain feature is kept iff its importance exceeds shadow's.
@@ -112,6 +129,11 @@ buildDataset <- function(
                     Features
                   }
     RESPONSES  <- COLS.y[sapply(DATA[, .SD, .SDcols = COLS.y], is.numeric)]
+    Bad <- grep("_", RESPONSES, fixed = TRUE, value = TRUE)
+    if (length(Bad)) {
+      stop("buildDataset: response names must not contain '_' (reserved as the ",
+           "split-file separator): ", paste(Bad, collapse = ", "), call. = FALSE)
+    }
     stopifnot(SET_COL %in% names(DATA))
     .trainRows <- DATA[[SET_COL]] == "train"
 

@@ -1,5 +1,7 @@
 Boruta
 Boruta's
+CLI
+CLI's
 Buenos
 Candes
 Facultad
@@ -14,17 +16,20 @@ Nonmatching
 OOF
 ORCID
 PSOCK
+PowerShell
 Parikh
 Positivity
 README
 Ramdas
 Rudnicki
+Rscript
 Seidel
 Springer
 Spyromitros
 Tibshirani
 Tsoumakas
 Universidad
+UNC
 Verri
 Vlahavas
 Xioufis
@@ -34,6 +39,8 @@ argmin
 cdots
 cellwise
 chainStable
+checksums
+cmd
 de
 deduplicated
 deliverables
@@ -41,6 +48,7 @@ disaggregated
 doi
 epsRevert
 et
+exe
 extremum
 fallbacks
 fc
@@ -89,6 +97,7 @@ schemas
 setminus
 ssel's
 subseteq
+sudo
 symmetrization
 texttt
 tol

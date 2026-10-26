@@ -82,8 +82,9 @@ That helper later requires one of \code{"ensemble.RMSE"} or
 \code{ensemble.RMSE} candidates.}
 
 \item{boundsMin, boundsMax}{Numeric response bounds forwarded through OOF,
-point-prediction, audit, and aggregation paths. Their order and finiteness
-are not validated.}
+point-prediction, audit, and aggregation paths. Each must be a single
+non-\code{NA} numeric value; \code{Inf} and \code{-Inf} are allowed and
+are the defaults. Their order and finiteness are not validated.}
 
 \item{iterSuffix}{\code{NULL}, or the suffix identifying prior-iteration
 response features in \code{\link[=buildDataset]{buildDataset()}}, commonly \code{".o"}.}

@@ -36,7 +36,7 @@ extractChainImportance <- function(pathModel, suffix = ".o", useModel = TRUE) {
   #                  ="shadow"; useModel=TRUE is unusable there because
   #                  earth omits unused features and ranger/gbm here are
   #                  trained without importance args.
-  Files <- list.files(pathModel, pattern = "\\.Rds$", full.names = TRUE)
+  Files <- .listFiles(pathModel, pattern = "\\.Rds$", full.names = TRUE)
   Files <- Files[!endsWith(Files, ".hash")]
   if (length(Files) == 0L) return(data.table())
 
@@ -59,7 +59,7 @@ extractChainImportance <- function(pathModel, suffix = ".o", useModel = TRUE) {
     Total <- sum(Imp$importance, na.rm = TRUE)
     Imp[, normImportance := if (Total > 0) round(importance / Total * 100, 4) else 0]
 
-    # R3: shadow's importance, if injected by buildDataset(.shadow=TRUE).
+    # Shadow's importance, if injected by buildDataset(.shadow = TRUE).
     ShadowImp <- Imp[feature == "shadow", normImportance]
     ShadowImp <- if (length(ShadowImp) == 1L) ShadowImp else NA_real_
 
@@ -81,7 +81,7 @@ extractChainImportance <- function(pathModel, suffix = ".o", useModel = TRUE) {
 # feature -> response name (strips suffix) and returns active responses.
 #
 # thresh: minimum mean normalized importance (%) to be considered active.
-#         0 -> any presence qualifies (SoT baseline).
+#         0 -> any presence qualifies.
 #         0.5 -> must average at least 0.5% of model importance.
 
 #' @export
@@ -95,7 +95,7 @@ activeByImportance <- function(importanceDT, suffix = ".o", thresh = 0) {
   Agg[meanImport >= thresh, chainResp]
 }
 
-# R3 - gate via shadow null floor.
+# Gate via the shadow null floor.
 # A chain feature Y_k.o is "active" iff its importance in a given model
 # exceeds the shadow's importance in that same model (the per-model null
 # floor produced by buildDataset(.shadow=TRUE) injecting Gaussian noise).

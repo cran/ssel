@@ -1,7 +1,7 @@
 Package: ssel
 Type: Package
 Title: Semi-Supervised Ensemble Learning
-Version: 0.4.0
+Version: 0.5.1
 Authors@R: 
     person("Alejandro", "Verri Kozlowski", , "averri@fi.uba.ar",
            role = c("aut", "cre", "cph"),
@@ -19,19 +19,19 @@ Description: Weighted-ensemble regression over base learners supported by
 License: MIT + file LICENSE
 Encoding: UTF-8
 Language: en-US
-URL: https://averriK.github.io/ssel/
+URL: https://kanameishi.github.io/ssel/
 Depends: R (>= 4.1.0)
 Imports: caret, crayon, data.table, dbscan, digest, doParallel, earth,
         foreach, gbm, jsonlite, ranger, stats, utils
-Suggests: devtools, htmlwidgets, knitr, pak, pkgdown, rcmdcheck,
-        rmarkdown, roxygen2, rhub, testthat (>= 3.0.0), webshot2
+Suggests: devtools, htmlwidgets, knitr, pkgdown, rcmdcheck, rmarkdown,
+        roxygen2, rhub, testthat (>= 3.0.0), webshot2
 VignetteBuilder: knitr
 Config/testthat/edition: 3
 Config/roxygen2/version: 8.1.0
 NeedsCompilation: no
-Packaged: 2026-08-24 18:30:03 UTC; averrik
+Packaged: 2026-10-25 19:43:47 UTC; averrik
 Author: Alejandro Verri Kozlowski [aut, cre, cph] (ORCID:
     <https://orcid.org/0000-0002-8535-1170>)
 Maintainer: Alejandro Verri Kozlowski <averri@fi.uba.ar>
 Repository: CRAN
-Date/Publication: 2026-08-24 18:50:02 UTC
+Date/Publication: 2026-10-26 03:40:02 UTC

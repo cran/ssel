@@ -22,9 +22,8 @@
 # Symmetric interpretation of q_90 means "90th-percentile residual offset";
 # an operator who wants a *two-sided* 90 % band constructs it as
 #   [yhat + q_05,  yhat + q_95]
-# which this module does NOT compute by default (kept minimal per the
-# handoff scope). If two-sided bands are required later, add q_05 to the
-# probs vector and handle in predictModel.
+# which this module does NOT compute by default. If two-sided bands are
+# required later, add q_05 to the probs vector and handle in predictModel.
 # *****************************************************************************
 
 #' @export
@@ -34,9 +33,13 @@ auditQuantiles <- function(.path.model, .path.train, .path.summary,
                            .response_pattern = NULL,
                            .sort_keys        = character(0),
                            verbose           = TRUE) {
+  .keysOld <- options(datatable.keepLeadingZeros = TRUE)
+  on.exit(options(.keysOld), add = TRUE)
   stopifnot(!is.null(.response_pattern),
             is.character(.response_pattern),
             nzchar(.response_pattern))
+  .checkBound(.min, ".min")
+  .checkBound(.max, ".max")
 
   if (!dir.exists(.path.summary)) dir.create(.path.summary, recursive = TRUE)
 
@@ -49,8 +52,15 @@ auditQuantiles <- function(.path.model, .path.train, .path.summary,
                      .sort_keys        = .sort_keys)
 
   if (nrow(RES) == 0) {
-    stop("auditQuantiles: oofEnsemble returned no rows - ",
-         "no .Rds models found or ensemble reconstruction failed.")
+    # Name what was observed. The previous message blamed absent models even
+    # when they were present and the response pattern had excluded them,
+    # sending the caller to look for files that were there all along.
+    stop("auditQuantiles: oofEnsemble reconstructed no rows from ",
+         length(.listFiles(.path.model, pattern = "\\.Rds$")),
+         " model file(s) in ", .path.model,
+         " under the response pattern '", .response_pattern,
+         "'. See the oofEnsemble warnings for which files matched and why",
+         " each was skipped.", call. = FALSE)
   }
 
   # Merge with existing files when present. Full-pipeline runs (auditing every

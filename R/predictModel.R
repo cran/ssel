@@ -17,16 +17,17 @@ predictModel <- function(
     .deliverable_datasets = NULL,
     .responses            = NULL   # optional filter: predict only these responses
 ) {
+  .keysOld <- options(datatable.keepLeadingZeros = TRUE)
+  on.exit(options(.keysOld), add = TRUE)
   stopifnot(.ensemble %in% c("ensemble.R2", "ensemble.RMSE"))
+  .checkBound(.min, ".min")
+  .checkBound(.max, ".max")
   if (!dir.exists(.path.summary)) dir.create(.path.summary)
   if (!dir.exists(.path.export))  dir.create(.path.export)
 
-  FILES     <- list.files(.path.train, pattern = "_TRAIN\\.csv$", full.names = FALSE) |>
-    sub(pattern = "\\.csv$", replacement = "") |> basename()
-  if (!is.null(.responses))
-    FILES <- FILES[sapply(FILES, function(.x) strsplit(.x, "_")[[1]][1]) %in% .responses]
+  FILES     <- .splitFiles(.path.train, .responses, "predictModel")
   RESPONSES <- sapply(FILES, function(.x) strsplit(.x, "_")[[1]][1]) |> unname() |> unique()
-  DATASETS  <- sapply(FILES, function(.x) strsplit(.x, "_")[[1]][2]) |> unname() |> unique() |> sort()
+  DATASETS  <- sapply(FILES, function(.x) strsplit(.x, "_")[[1]][2]) |> unname() |> unique() |> .portableSort()
 
   # -- Predict ----------------------------------------------------------------
   trainRegressionModel(
@@ -43,18 +44,30 @@ predictModel <- function(
     .max           = .max
   )
 
+  .summarizePredictions(
+    pathMetrics = .path.metrics, pathResponse = .path.response,
+    pathSummary = .path.summary, pathExport = .path.export,
+    datasets = DATASETS, responses = RESPONSES, probs = probs,
+    ensemble = .ensemble, boundsMin = .min, boundsMax = .max,
+    pathIndex = .file.index, deliverableDatasets = .deliverable_datasets
+  )
+}
+
+.summarizePredictions <- function(pathMetrics, pathResponse, pathSummary, pathExport,
+                                  datasets, responses, probs, ensemble,
+                                  boundsMin, boundsMax, pathIndex, deliverableDatasets) {
   # -- Bind metrics -----------------------------------------------------------
   DT.metrics <- rbindlist(
-    lapply(list.files(.path.metrics, pattern = "\\.csv$", full.names = TRUE), fread),
+    lapply(.listFiles(pathMetrics, pattern = "\\.csv$", full.names = TRUE), fread),
     use.names = TRUE, fill = TRUE
   ) |> unique()
-  fwrite(DT.metrics, file.path(.path.summary, "metrics.csv"))
+  fwrite(DT.metrics, file.path(pathSummary, "metrics.csv"))
 
   # -- Merge responses --------------------------------------------------------
   DT <- data.table()
-  for (.dataset in DATASETS) {
-    for (.response in RESPONSES) {
-      FILE <- file.path(.path.response, paste0(.response, "_", .dataset, ".csv"))
+  for (.dataset in datasets) {
+    for (.response in responses) {
+      FILE <- file.path(pathResponse, paste0(.response, "_", .dataset, ".csv"))
       if (!file.exists(FILE)) next
       AUX <- fread(FILE) |> unique()
       AUX[, set := paste0(.response, "_", .dataset)]
@@ -71,17 +84,17 @@ predictModel <- function(
   # of { y_obs - y_hat_oof } on the training rows of the winning dataset.
   newCols <- paste0("value.", as.integer(probs * 100))
   # Select the best dataset per response using the metric matching the chosen ensemble.
-  # When .deliverable_datasets is NULL (default), every dataset in DT.metrics is
+  # When deliverableDatasets is NULL (default), every dataset in DT.metrics is
   # eligible. Callers that need to restrict to a subset (e.g. drop XRF-augmented
   # variants that have zero training rows on a given delivery) pass a vector.
-  DT.metrics.main <- if (is.null(.deliverable_datasets)) DT.metrics
-                     else DT.metrics[dataset %in% .deliverable_datasets]
-  BM  <- if (.ensemble == "ensemble.RMSE")
-           DT.metrics.main[method == .ensemble, .SD[which.min(rmse)], by = response]
+  DT.metrics.main <- if (is.null(deliverableDatasets)) DT.metrics
+                     else DT.metrics[dataset %in% deliverableDatasets]
+  BM  <- if (ensemble == "ensemble.RMSE")
+           DT.metrics.main[method == ensemble, .SD[which.min(rmse)], by = response]
          else
-           DT.metrics.main[method == .ensemble, .SD[which.max(r2)],   by = response]
+           DT.metrics.main[method == ensemble, .SD[which.max(r2)],   by = response]
 
-  pq_file <- file.path(.path.summary, "prediction_quantiles.csv")
+  pq_file <- file.path(pathSummary, "prediction_quantiles.csv")
   if (!file.exists(pq_file)) {
     stop("predictModel: ", pq_file, " not found - auditQuantiles must run before predictModel.")
   }
@@ -89,7 +102,7 @@ predictModel <- function(
 
   DT  <- data.table()
   for (.set in unique(BM$set)) {
-    AUX  <- DTL[method == .ensemble & set == .set]
+    AUX  <- DTL[method == ensemble & set == .set]
     row  <- BM[set == .set]
     stopifnot(nrow(row) == 1)
     Qrow <- PQ[response == row$response & dataset == row$dataset]
@@ -99,7 +112,7 @@ predictModel <- function(
       value + offset
     })]
     # Clamp predictive-band quantiles to physical bounds (same as point predictions)
-    AUX[, (newCols) := lapply(.SD, function(q) pmax(.min, pmin(.max, q))),
+    AUX[, (newCols) := lapply(.SD, function(q) pmax(boundsMin, pmin(boundsMax, q))),
         .SDcols = newCols]
     DT <- rbindlist(list(DT, AUX[]), use.names = TRUE)
   }
@@ -109,21 +122,21 @@ predictModel <- function(
     dcast(DT, SampleID ~ response, value.var = col)[, p := pct / 100]
   }), use.names = TRUE)
 
-  fwrite(DTL, file.path(.path.summary, "response_long.csv"))
-  for (.dataset in DATASETS) {
+  fwrite(DTL, file.path(pathSummary, "response_long.csv"))
+  for (.dataset in datasets) {
     .sids <- unique(DTL[grepl(paste0("_", .dataset, "$"), set), SampleID])
     DTW.ds <- DTW[SampleID %in% .sids]
     if (nrow(DTW.ds) > 0) {
-      fwrite(DTW.ds, file.path(.path.export, paste0(.dataset, ".csv")))
-      .DEBUG("Fitted dataset:", .dataset, "->", file.path(.path.export, paste0(.dataset, ".csv")))
+      fwrite(DTW.ds, file.path(pathExport, paste0(.dataset, ".csv")))
+      .DEBUG("Fitted dataset:", .dataset, "->", file.path(pathExport, paste0(.dataset, ".csv")))
     }
   }
 
   # -- Bind location data -----------------------------------------------------
-  if (!is.null(.file.index) && file.exists(.file.index)) {
-    IDX  <- fread(.file.index)
+  if (!is.null(pathIndex) && file.exists(pathIndex)) {
+    IDX  <- fread(pathIndex)
     .key <- names(IDX)[1]
-    for (.f in list.files(c(.path.summary, .path.export), pattern = "\\.csv$", full.names = TRUE)) {
+    for (.f in .listFiles(c(pathSummary, pathExport), pattern = "\\.csv$", full.names = TRUE)) {
       DT <- fread(.f)
       if (.key %in% names(DT)) {
         DT <- IDX[DT, on = .key]

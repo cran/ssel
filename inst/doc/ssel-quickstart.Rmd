@@ -87,8 +87,9 @@ using the column as a predictor or response.
 ## Create the three model-input products
 
 The example uses mm for `thickness_mm`, percent for `moisture_pct`, and MPa for
-`strength_mpa`. Those units are an input convention: ssel does
-not convert them.
+`strengthMpa`. Those units are an input convention: ssel does
+not convert them. A feature name may contain `_`; a response or dataset name
+may not, because `_` separates them in the split filenames created below.
 
 ```{r assemble}
 Root <- tempfile("ssel-quickstart-")
@@ -125,7 +126,7 @@ Assembled <- data.frame(
   set = RowRole,
   thickness_mm = ThicknessMm,
   moisture_pct = MoisturePct,
-  strength_mpa = StrengthMpa
+  strengthMpa = StrengthMpa
 )
 
 InputFile <- file.path(
@@ -143,7 +144,7 @@ utils::write.csv(
 buildDataset(
   .path.input = InputDir,
   .path.train = OutputDir,
-  Y.PATTERN = "^strength_mpa$",
+  Y.PATTERN = "^strengthMpa$",
   KEY = "SampleID",
   features = c(
     "thickness_mm",
@@ -184,7 +185,7 @@ knitr::kable(
 )
 ```
 
-The response name (`strength_mpa`) and dataset basename (`specimens`) determine
+The response name (`strengthMpa`) and dataset basename (`specimens`) determine
 the three filenames. Read each product to see its role.
 
 ```{r inspect}

@@ -17,7 +17,7 @@ ratio and accepts rounds with an OOF squared-correlation gauge.
 \seealso{
 Useful links:
 \itemize{
-  \item \url{https://averriK.github.io/ssel/}
+  \item \url{https://kanameishi.github.io/ssel/}
 }
 
 }

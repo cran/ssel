@@ -33,7 +33,9 @@
 #' @param datasets Non-empty character vector of assembled dataset basenames.
 #'   Feature extraction uses the last declared file that actually exists.
 #' @param boundsMin,boundsMax Numeric response bounds used to project every
-#'   point-plus-offset value. Their order and finiteness are not validated.
+#'   point-plus-offset value. Each must be a single non-\code{NA} numeric
+#'   value; \code{Inf} and \code{-Inf} are allowed. Their order and finiteness
+#'   are not validated.
 #' @param .path.iter \code{NULL}, or an iteration directory. When non-null, its
 #'   parent path for \code{Y.csv} is created recursively and the training-row
 #'   median-offset table is written or merged.
@@ -214,9 +216,13 @@ aggregateResponses <- function(
     boundsMax    = Inf,
     .path.iter   = NULL
 ) {
+  .keysOld <- options(datatable.keepLeadingZeros = TRUE)
+  on.exit(options(.keysOld), add = TRUE)
   stopifnot(is.character(key), nzchar(key))
   stopifnot(is.character(responses), length(responses) > 0L)
   stopifnot(is.character(datasets), length(datasets) > 0L)
+  .checkBound(boundsMin, "boundsMin")
+  .checkBound(boundsMax, "boundsMax")
 
   .clamp <- function(x) pmax(boundsMin, pmin(boundsMax, x))
 

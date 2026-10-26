@@ -117,11 +117,17 @@ or out-of-range OOF index stops the call.
 
 \section{Skips, ordering, and side effects}{
 
-Nonmatching filenames, absent TRAIN files, unreadable models, failed
-best-tune merges, empty saved predictions, and models with no finite saved
-row are skipped silently. A cell can also disappear under the RMSE and
-row-availability rules above. If nothing remains, the function returns an
-empty zero-column \code{data.table}. Result order is an implementation
+A filename that does not match \code{.response_pattern} is filtered out
+silently: excluding responses is what the pattern is for. A file that does
+match and still cannot be used -- absent TRAIN file, unreadable model,
+failed best-tune merge, empty saved predictions, or no finite saved row --
+is skipped and reported by a warning naming the file and the reason. A
+cell can also disappear under the RMSE and row-availability rules above;
+a warning then reports how many of the cells were reconstructed. A third
+warning reports a reconstruction that produced nothing at all,
+distinguishing a pattern that matched no filename from matches that were
+all skipped. If nothing remains, the function returns an empty
+zero-column \code{data.table}. Result order is an implementation
 consequence and is not a sorting guarantee.
 
 The helper reads files but writes none, does not fit models, and does not

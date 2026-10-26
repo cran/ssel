@@ -36,7 +36,8 @@ If \code{TRUE}, every discovered cell is fitted again.}
 \item{.min, .max}{Numeric response bounds, in the response's units. They are
 forwarded to the cell engine for API consistency; this wrapper invokes
 training mode only, so the bounds do not alter fitting or training data.
-Their order and finiteness are not validated.}
+Each must be a single non-\code{NA} numeric value; \code{Inf} and
+\code{-Inf} are allowed. Their order and finiteness are not validated.}
 
 \item{.responses}{\code{NULL}, or a character vector restricting the discovered
 response names. \code{NULL} fits every discovered response. Requested names

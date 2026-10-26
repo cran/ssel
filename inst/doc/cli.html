@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+
+
+<title>ssel command-line interface</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+
+<style type="text/css">
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
+
+
+
+<style type="text/css">
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
+</style>
+<style type="text/css" data-origin="pandoc">
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">ssel command-line interface</h1>
+
+
+
+<p>The <code>ssel</code> command calls the installed SSEL public API and
+shares its version. Every public function is available by its exact R
+name. The aliases <code>model</code>, <code>chain</code> and
+<code>post</code> remain available. The command reads the installed
+library’s API facts.</p>
+<table>
+<colgroup>
+<col width="50%" />
+<col width="50%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Work</th>
+<th>Operations</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Complete workflows</td>
+<td><code>modelPipeline</code>, <code>chainPipeline</code>,
+<code>semiSupervisedPipeline</code></td>
+</tr>
+<tr class="even">
+<td>Splits, fits and predictions</td>
+<td><code>buildDataset</code>, <code>trainModel</code>,
+<code>trainRegressionModel</code>, <code>predictModel</code></td>
+</tr>
+<tr class="odd">
+<td>OOF diagnostics</td>
+<td><code>oofEnsemble</code>, <code>auditQuantiles</code>,
+<code>auditOverfit</code></td>
+</tr>
+<tr class="even">
+<td>Delivery</td>
+<td><code>aggregateResponses</code>, <code>postProcess</code></td>
+</tr>
+<tr class="odd">
+<td>Chain importance and gates</td>
+<td><code>extractChainImportance</code>,
+<code>activeByImportance</code>, <code>activeByShadow</code>,
+<code>computeActiveByImportance</code></td>
+</tr>
+<tr class="even">
+<td>Data utilities</td>
+<td><code>detectOutliers</code>, <code>removeOutliersIQR</code>,
+<code>toNumeric</code>, <code>which.nonnum</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>ssel --help</code> lists operations.
+<code>ssel OPERATION --help</code> renders that function’s installed R
+documentation. <code>ssel --version</code> prints
+<code>ssel &lt;version&gt;</code>, the version of the package actually
+loaded; the command has no version of its own. API access does not imply
+that every learner, dataset or scientific configuration has been
+validated.</p>
+<div id="library-boundary" class="section level2">
+<h2>Library boundary</h2>
+<p>The adapter owns terminal arguments, JSON/RDS decoding, table
+schemas, result serialization and exit status. Its private R helpers
+implement those interface contracts. Modeling, iteration, gates,
+diagnostics and transformations stay in the installed library. The
+adapter resolves exported functions and invokes them with their existing
+arguments; it does not source implementation files or introduce a second
+scientific pipeline.</p>
+<p>Project data builders and manifest interpretation remain in the
+consuming project. A project manifest is not automatically an SSEL
+argument specification. AR-S2J2J, for example, assembles its domains and
+datasets before calling SSEL.</p>
+</div>
+<div id="installation" class="section level2">
+<h2>Installation</h2>
+<p>Use a complete source bundle containing <code>cli/</code> and
+<code>install/</code>. The R package alone does not install the terminal
+command. R must be installed.</p>
+<p>The normal macOS entry installs the package when missing and the CLI
+under the default prefix <code>/usr/local</code>:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="fu">sudo</span> bash install/install.sh</span></code></pre></div>
+<p>Under sudo, every R process runs as the validated invoking user; R
+does not request elevation. The default builds and installs the package
+from the bundle’s <code>lib/</code> together with the CLI, even when the
+installed version is equal or newer; <code>--tarball</code> selects a
+recorded package artifact instead of building the checkout. On Windows
+the entry is native PowerShell without elevation, with default prefix
+<code>%LOCALAPPDATA%\Programs\ssel</code>:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode powershell"><code class="sourceCode powershell"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a>powershell <span class="op">-</span>ExecutionPolicy Bypass <span class="op">-</span>File install\install<span class="op">.</span><span class="fu">ps1</span></span></code></pre></div>
+<p>Equivalent options are <code>-Yes</code>, <code>-Check</code>,
+<code>-Library</code>, <code>-Dependency</code>, <code>-Tarball</code>
+and <code>-Prefix</code>; <code>-NoPath</code> prevents a user PATH
+change. The bundle’s <code>install/USAGE.md</code> is the installation
+manual and defines these separate operations.</p>
+<p>The public operation installs the package and the CLI together; there
+is no component selection. The examples below therefore send both to
+temporary destinations, so they leave an existing installation
+untouched. Run them from the bundle root. They do not alter shell
+profiles.</p>
+<p>macOS, in Bash:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="va">work</span><span class="op">=</span><span class="st">&quot;</span><span class="va">$(</span><span class="fu">mktemp</span> <span class="at">-d</span><span class="va">)</span><span class="st">&quot;</span></span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a><span class="va">library</span><span class="op">=</span><span class="st">&quot;</span><span class="va">$work</span><span class="st">/library&quot;</span></span>
+<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a><span class="va">prefix</span><span class="op">=</span><span class="st">&quot;</span><span class="va">$work</span><span class="st">/ssel&quot;</span></span>
+<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a><span class="fu">mkdir</span> <span class="at">-p</span> <span class="st">&quot;</span><span class="va">$library</span><span class="st">&quot;</span></span>
+<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a><span class="fu">bash</span> install/install.sh <span class="at">--yes</span> <span class="at">--library</span> <span class="st">&quot;</span><span class="va">$library</span><span class="st">&quot;</span> <span class="at">--prefix</span> <span class="st">&quot;</span><span class="va">$prefix</span><span class="st">&quot;</span></span>
+<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a><span class="bu">export</span> <span class="va">R_LIBS</span><span class="op">=</span><span class="st">&quot;</span><span class="va">$library${R_LIBS</span><span class="op">:+</span>:<span class="va">$R_LIBS}</span><span class="st">&quot;</span></span>
+<span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a><span class="bu">export</span> <span class="va">PATH</span><span class="op">=</span><span class="st">&quot;</span><span class="va">$prefix</span><span class="st">/bin:</span><span class="va">$PATH</span><span class="st">&quot;</span></span>
+<span id="cb3-8"><a href="#cb3-8" tabindex="-1"></a><span class="ex">ssel</span> <span class="at">--version</span></span></code></pre></div>
+<p>Windows, in native PowerShell:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode powershell"><code class="sourceCode powershell"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a><span class="va">$Work</span> <span class="op">=</span> <span class="fu">Join-Path</span> <span class="op">([</span>System<span class="op">.</span><span class="fu">IO</span><span class="op">.</span><span class="fu">Path</span><span class="op">]::</span>GetTempPath<span class="op">())</span> <span class="op">([</span>guid<span class="op">]::</span>NewGuid<span class="op">().</span><span class="fu">ToString</span><span class="op">())</span></span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a><span class="va">$Library</span> <span class="op">=</span> <span class="fu">Join-Path</span> <span class="va">$Work</span> <span class="st">&#39;library&#39;</span></span>
+<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a><span class="va">$Prefix</span> <span class="op">=</span> <span class="fu">Join-Path</span> <span class="va">$Work</span> <span class="st">&#39;ssel&#39;</span></span>
+<span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a><span class="fu">New-Item</span> <span class="op">-</span>ItemType Directory <span class="op">-</span>Path <span class="va">$Library</span> <span class="op">-</span>Force <span class="op">|</span> <span class="fu">Out-Null</span></span>
+<span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a><span class="op">&amp;</span> <span class="op">.</span>\install\install<span class="op">.</span><span class="fu">ps1</span> <span class="op">-</span>Yes <span class="op">-</span>Library <span class="va">$Library</span> <span class="op">-</span>Prefix <span class="va">$Prefix</span> <span class="op">-</span>NoPath</span>
+<span id="cb4-6"><a href="#cb4-6" tabindex="-1"></a><span class="va">$env</span><span class="op">:</span><span class="va">R_LIBS</span> <span class="op">=</span> <span class="op">(@(</span><span class="va">$Library</span><span class="op">,</span> <span class="va">$env</span><span class="op">:</span><span class="va">R_LIBS</span><span class="op">)</span> <span class="op">|</span> <span class="fu">Where-Object</span> <span class="op">{</span> <span class="va">$_</span> <span class="op">})</span> <span class="op">-join</span> <span class="st">&#39;;&#39;</span></span>
+<span id="cb4-7"><a href="#cb4-7" tabindex="-1"></a><span class="va">$env</span><span class="op">:</span><span class="va">PATH</span> <span class="op">=</span> <span class="op">(</span><span class="fu">Join-Path</span> <span class="va">$Prefix</span> <span class="st">&#39;bin&#39;</span><span class="op">)</span> <span class="op">+</span> <span class="st">&#39;;&#39;</span> <span class="op">+</span> <span class="va">$env</span><span class="op">:</span><span class="va">PATH</span></span>
+<span id="cb4-8"><a href="#cb4-8" tabindex="-1"></a><span class="op">&amp;</span> <span class="op">(</span><span class="fu">Join-Path</span> <span class="va">$Prefix</span> <span class="st">&#39;bin\ssel.ps1&#39;</span><span class="op">)</span> <span class="op">--</span>version</span></code></pre></div>
+<p>Runtime commands never install dependencies. Compatible dependencies
+visible to R remain available through normal library resolution.</p>
+<p>The installed payload contains platform launchers under
+<code>PREFIX/bin</code>, the runtime under
+<code>PREFIX/libexec/ssel</code>, an uninstaller and an ownership
+receipt. The launchers resolve R when they run; the receipt records the
+R that installed them as history, not as the interpreter to reuse. It
+works after the source bundle is removed. Existing CLI paths and linked
+<code>bin</code>/<code>libexec</code> directories cause a conflict. On
+Windows use <code>ssel.ps1</code> when the working directory is a UNC
+path; cmd.exe cannot preserve a UNC working directory.</p>
+<p>To remove the temporary CLI, after using it:</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a><span class="fu">bash</span> <span class="st">&quot;</span><span class="va">$prefix</span><span class="st">/libexec/ssel/install/uninstall.sh&quot;</span> <span class="at">--prefix</span> <span class="st">&quot;</span><span class="va">$prefix</span><span class="st">&quot;</span> <span class="at">--library</span> <span class="st">&quot;</span><span class="va">$library</span><span class="st">&quot;</span></span></code></pre></div>
+<div class="sourceCode" id="cb6"><pre class="sourceCode powershell"><code class="sourceCode powershell"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a><span class="op">&amp;</span> <span class="op">(</span><span class="fu">Join-Path</span> <span class="va">$Prefix</span> <span class="st">&#39;libexec\ssel\install\uninstall.ps1&#39;</span><span class="op">)</span> <span class="op">-</span>Prefix <span class="va">$Prefix</span> <span class="op">-</span>Library <span class="va">$Library</span></span></code></pre></div>
+<p>A default macOS installation is removed with
+<code>sudo bash install/uninstall.sh</code>; after deleting the
+checkout, use the installed copy
+<code>sudo bash /usr/local/libexec/ssel/install/uninstall.sh</code>.
+Removal checks owned file checksums first. Modified or missing files
+stop removal. R packages and unrelated files remain.</p>
+</div>
+<div id="inputs-and-returned-objects" class="section level2">
+<h2>Inputs and returned objects</h2>
+<pre class="text"><code>ssel OPERATION --spec FILE.json|FILE.rds [--output RESULT.rds|RESULT_DIR] [--seed N] [--root DIR]</code></pre>
+<p>A JSON specification is one object with exact R argument names.
+Omitted arguments retain R defaults. Scalars and declared vector
+arguments become R values/vectors; nested objects remain lists. A JSON
+<code>null</code> supplies <code>NULL</code>. Null elements within a
+vector become missing values. Empty character vectors and nested gate
+histories are supported. The exact texts <code>&quot;Inf&quot;</code>,
+<code>&quot;-Inf&quot;</code> and <code>&quot;NaN&quot;</code> decode to their numeric
+values only where the argument default is numeric; anywhere else they
+remain ordinary strings.</p>
+<p><code>--seed N</code> seeds the R process before the operation, so
+independent invocations of stochastic learners are reproducible.</p>
+<p>An RDS specification is a plain named list of arguments. It preserves
+native R types, tables, factors, empty vectors, nested lists,
+<code>NULL</code>, <code>NA</code>, <code>NaN</code> and infinities. In
+JSON, any argument can instead be <code>{&quot;$rds&quot;:&quot;value.rds&quot;}</code> to
+read that native object. Values are passed as data, without evaluating
+stored expressions.</p>
+<p>Table arguments <code>DT</code>, <code>.data</code>,
+<code>importanceDT</code> and <code>IMP</code> also accept
+<code>{&quot;$csv&quot;:&quot;table.csv&quot;,&quot;colClasses&quot;:{&quot;column&quot;:&quot;character&quot;},&quot;na.strings&quot;:[&quot;NA&quot;]}</code>.
+Declare every CSV column and its class, and the exact missing-value
+convention. Use RDS when factor levels or other R attributes matter.</p>
+<p>Data-returning functions require <code>--output</code>. This includes
+<code>trainRegressionModel</code> in both modes and the complete
+semi-supervised history and promotion return. With an <code>.rds</code>
+path the full result, including an invisible R return, is saved as RDS.
+With a path without extension, a new directory is created holding
+<code>result.json</code> — the result’s shape and types, with
+<code>NA</code> as null and <code>NaN</code>, <code>Inf</code> and
+<code>-Inf</code> as their exact texts — plus one CSV per table with
+column classes and factor levels recorded in the manifest. Classes
+without a portable form refuse the conversion; use <code>.rds</code> for
+them. The six file-oriented operations <code>buildDataset</code>,
+<code>trainModel</code>, <code>modelPipeline</code>,
+<code>chainPipeline</code>, <code>aggregateResponses</code> and
+<code>postProcess</code> allow output to be omitted. Outputs must be new
+paths in an existing directory; this restriction applies only to
+<code>--output</code>, not to files written by the library. The
+six-operation classification controls whether <code>--output</code> is
+optional; other operations also write files, as described below.</p>
+<p><code>--output</code> saves the function’s return <strong>after the
+operation runs</strong>. It does not select or redirect the operation’s
+working directories. For example, <code>trainRegressionModel</code>
+requires it even with <code>TRAIN = TRUE</code>, which writes models and
+returns <code>NULL</code>. Changing <code>--output</code> and invoking
+the command again executes the operation again; it does not convert a
+previously saved result.</p>
+<p><code>--root DIR</code> selects an existing project directory.
+Relative paths resolve from that directory: the specification itself,
+its CSV/RDS references, operation arguments and <code>--output</code>.
+Without <code>--root</code>, they resolve from the <strong>working
+directory</strong>. Moving the specification does not change that base;
+absolute paths remain absolute. For example, from outside a project:</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode sh"><code class="sourceCode bash"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a><span class="ex">ssel</span> toNumeric <span class="at">--root</span> /path/to/project <span class="at">--spec</span> numeric.json <span class="at">--output</span> numeric-result.rds</span></code></pre></div>
+<p>The selected root is also the working directory seen by the library’s
+existing validation of destinations that a pipeline may wipe.</p>
+</div>
+<div id="files-written-by-each-operation" class="section level2">
+<h2>Files written by each operation</h2>
+<p>The paths below are arguments inside the specification, resolved from
+<code>--root</code> or the working directory as described above. A name
+such as <code>.path.export</code> is a caller-selected directory, not a
+fixed <code>data/export</code> location. The <code>model</code>,
+<code>chain</code> and <code>post</code> aliases have the effects of
+<code>modelPipeline</code>, <code>chainPipeline</code> and
+<code>postProcess</code> respectively.</p>
+<div id="splits-models-diagnostics-and-delivery" class="section level3">
+<h3>Splits, models, diagnostics and delivery</h3>
+<p>Here <code>&lt;response&gt;</code>, <code>&lt;dataset&gt;</code> and
+<code>&lt;method&gt;</code> stand for the selected names. These
+functions do not recursively clear their output directories. Files they
+write can replace existing files at the same paths; skipped cells can
+leave earlier files in place.</p>
+<table>
+<colgroup>
+<col width="33%" />
+<col width="33%" />
+<col width="33%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Operation</th>
+<th>Files read</th>
+<th>Files written and rerun behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>buildDataset</code></td>
+<td>Dataset CSVs in <code>.path.input</code>.</td>
+<td>Writes <code>&lt;response&gt;_&lt;dataset&gt;_TRAIN.csv</code>,
+<code>_TEST.csv</code> and <code>_TRAIN_ids.csv</code> in the existing
+<code>.path.train</code> directory. Replaces the splits it emits; it
+does not create that directory or remove obsolete splits.</td>
+</tr>
+<tr class="even">
+<td><code>trainModel</code></td>
+<td>TRAIN splits in <code>.path.train</code>, and cached models/hashes
+in <code>.path.model</code>.</td>
+<td>Calls <code>trainRegressionModel</code> with
+<code>TRAIN = TRUE</code>: writes model/hash pairs in
+<code>.path.model</code>. Creates missing <code>.path.model</code>,
+<code>.path.metrics</code> and <code>.path.response</code> directories
+when their parents exist; this training step does not emit metrics or
+predictions. <code>OVERRIDE</code> follows the cache rule below.</td>
+</tr>
+<tr class="odd">
+<td><code>trainRegressionModel</code></td>
+<td>With <code>TRAIN = TRUE</code>, TRAIN splits in
+<code>.path.data</code> and cached models/hashes. With
+<code>TRAIN = FALSE</code>, TRAIN/TEST splits, models and metrics.</td>
+<td>With <code>TRAIN = TRUE</code>, saves
+<code>.path.model/&lt;method&gt;_&lt;response&gt;_&lt;dataset&gt;.Rds</code>
+and its <code>.Rds.hash</code> companion. With
+<code>TRAIN = FALSE</code>, writes
+<code>&lt;response&gt;_&lt;dataset&gt;.csv</code> in
+<code>.path.metrics</code> and <code>.path.response</code>. The needed
+destination directories must already exist.</td>
+</tr>
+<tr class="even">
+<td><code>predictModel</code></td>
+<td>Splits in <code>.path.train</code>, models in
+<code>.path.model</code>, metrics/response CSVs, and
+<code>.path.summary/prediction_quantiles.csv</code> from
+<code>auditQuantiles</code>. Optionally <code>.file.index</code>.</td>
+<td>Runs <code>trainRegressionModel</code> with
+<code>TRAIN = FALSE</code>, then replaces
+<code>.path.summary/metrics.csv</code>, <code>response_long.csv</code>
+and nonempty <code>.path.export/&lt;dataset&gt;.csv</code> deliveries.
+Creates missing summary/export directories when their parents exist;
+metrics/response directories must already exist. When
+<code>.file.index</code> exists, it also joins location data into
+<strong>every CSV in summary/export containing the index key</strong>,
+rewriting those files.</td>
+</tr>
+<tr class="odd">
+<td><code>auditQuantiles</code></td>
+<td>Models in <code>.path.model</code>, TRAIN splits/ID sidecars in
+<code>.path.train</code>, and <code>.path.datasets</code> for ID
+recovery when a sidecar is absent; existing summary residuals if
+present.</td>
+<td>Creates <code>.path.summary</code> as needed. Rewrites
+<code>residuals_oof.csv</code>, retaining previous rows for responses
+absent from the reconstructed batch, then recomputes
+<code>prediction_quantiles.csv</code> from the combined residuals. No
+reconstructed rows is an error before either CSV is written.</td>
+</tr>
+<tr class="even">
+<td><code>auditOverfit</code></td>
+<td>Models in <code>.path.model</code> and TRAIN splits in
+<code>.path.train</code>.</td>
+<td>Creates <code>.path.summary</code> as needed and writes
+<code>overfit.csv</code> for the reconstructed audit. This replaces the
+table rather than merging responses. If the audit returns a column-less
+empty table, <code>fwrite</code> does not replace an earlier file; read
+the warnings before treating that file as a current result.</td>
+</tr>
+<tr class="odd">
+<td><code>aggregateResponses</code></td>
+<td><code>.path.summary/{response_long,metrics,prediction_quantiles,residuals_oof}.csv</code>,
+declared dataset CSVs in <code>.path.datasets</code>, and earlier
+<code>Yo.csv</code>/<code>Y.csv</code> when present.</td>
+<td>Rewrites <code>.path.export/Yo.csv</code>, retaining responses
+absent from the new prediction rows. Writes
+<code>.path.export/X.csv</code> and <code>Xo.csv</code> from the last
+declared dataset whose file exists; with no dataset file, warns and
+leaves earlier X files in place. The export directory must exist. When
+<code>.path.iter</code> is supplied, creates it as needed and
+merges/replaces response columns in <code>Y.csv</code>.</td>
+</tr>
+<tr class="even">
+<td><code>postProcess</code></td>
+<td><code>.path.export/Yo.csv</code>,
+<code>.path.summary/{response_long,residuals_oof,metrics,prediction_quantiles}.csv</code>,
+and <code>locationSources</code>. Their defaults are
+<code>data/domains/index.csv</code>, <code>.path.export/X.csv</code> and
+<code>.path.export/Xo.csv</code>.</td>
+<td>Writes or replaces <code>.path.export/predictions.csv</code> and
+<code>audit.csv</code>. It reads but does not rewrite
+<code>Yo.csv</code> or the summaries.</td>
+</tr>
+</tbody>
+</table>
+<p>In training mode, <code>OVERRIDE = FALSE</code> skips a model only
+when both its RDS and hash file exist and the stored hash matches the
+sorted predictor names. This is a <strong>feature-name check</strong>,
+not a check of training values, tuning or all model settings. A missing
+or different hash triggers fitting and may replace the model.
+<code>OVERRIDE = TRUE</code> requests fitting regardless of that cache;
+a failed fit is reported and does not replace the existing model.</p>
+</div>
+<div id="workflow-cleanup-and-iteration-state" class="section level3">
+<h3>Workflow cleanup and iteration state</h3>
+<p><code>modelPipeline</code> (<code>model</code>) reads
+<code>.path.datasets</code>, rebuilds splits in <code>.path.train</code>
+in every mode, and uses the corresponding destinations from the table
+above. Its cleanup policy is:</p>
+<table>
+<colgroup>
+<col width="33%" />
+<col width="33%" />
+<col width="33%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th><code>mode</code></th>
+<th>With <code>wipe = NULL</code> (default) or <code>TRUE</code></th>
+<th>Work after cleanup</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>full</code> (default)</td>
+<td>Recursively removes <code>.path.train</code>,
+<code>.path.metrics</code>, <code>.path.response</code>,
+<code>.path.summary</code>, <code>.path.model</code> and
+<code>.path.export</code>.</td>
+<td>Rebuilds splits, fits, audits, predicts and aggregates.</td>
+</tr>
+<tr class="even">
+<td><code>train</code></td>
+<td>Recursively removes <code>.path.train</code>,
+<code>.path.metrics</code>, <code>.path.response</code> and
+<code>.path.summary</code>; retains model/export directories.</td>
+<td>Rebuilds splits and fits under <code>OVERRIDE = FALSE</code>.</td>
+</tr>
+<tr class="odd">
+<td><code>predict</code></td>
+<td>Recursively removes <code>.path.train</code>,
+<code>.path.metrics</code>, <code>.path.response</code> and
+<code>.path.summary</code>; retains model/export directories.</td>
+<td>Rebuilds splits, audits existing models, predicts and
+aggregates.</td>
+</tr>
+</tbody>
+</table>
+<p>With <code>wipe = FALSE</code>, none of those directory trees is
+removed, but individual split/product files can still be replaced or
+merged. Training then uses <code>OVERRIDE = FALSE</code>. Missing
+destination directories are created recursively. An optional
+<code>.path.iter</code> receives <code>Y.csv</code> during aggregation;
+this operation does not clear that directory. <code>modelPipeline</code>
+does not call <code>postProcess</code>.</p>
+<p><code>chainPipeline</code> (<code>chain</code>) uses the same dataset
+and output arguments plus <code>.path.iter</code>. A fresh chain
+(<code>resume = FALSE</code>, the default) recursively removes
+<code>.path.iter</code> and runs a full model pass. Each Jacobi
+iteration runs another full pass; each Gauss-Seidel sweep clears the six
+model output directories once, then accumulates its response substeps
+without clearing them again. The chain writes augmented
+<code>datasets_&lt;n&gt;/</code>, <code>Y.csv</code>,
+<code>Y&lt;n&gt;.csv</code>, <code>Yo&lt;n&gt;.csv</code>,
+<code>metrics_&lt;n&gt;.csv</code>, <code>summary_&lt;n&gt;/</code>
+snapshots and <code>convergence.csv</code> under
+<code>.path.iter</code>. Summary snapshots replace the same snapshot
+directory; convergence rows are appended for continued iterations.</p>
+<p><code>resume = TRUE</code> continues only when both
+<code>.path.iter/convergence.csv</code> and
+<code>.path.iter/Y.csv</code> exist. If either is absent, it takes the
+fresh-chain path, including deletion of <code>.path.iter</code>. If both
+exist but <code>.path.summary/metrics.csv</code> is missing, it stops
+instead. Later continuation and final assembly also consume the saved
+snapshots. Resume still replaces the model-stage outputs as iterations
+run; it is not an append-only operation. At completion,
+<code>Yo.csv</code> and the five summary CSVs are assembled from the
+selected iteration for each response. Models and
+<code>.path.iter/Y.csv</code> retain the last iteration, not that
+assembled per-response selection.</p>
+<p><code>semiSupervisedPipeline</code> reads <code>.path.datasets</code>
+and writes under <code>.path.work/round/</code>. Before <strong>every
+fit round</strong>, including its initial fit and a fit restoring
+accepted pseudo-labels after rejection, it recursively removes that
+<code>round</code> directory. It recreates <code>datasets</code>,
+<code>train</code>, <code>model</code>, <code>metrics</code>,
+<code>response</code>, <code>summary</code> and <code>export</code>
+there, then re-emits final predictions over the original prediction
+pool. It does not retain a separate product tree per round;
+<code>--output</code> saves its returned history and promotions. When
+<code>.path.iter</code> is supplied, the function reads its
+<code>metrics_&lt;n&gt;.csv</code> files and selects
+<code>datasets_&lt;n&gt;/</code> there as its source instead of the
+supplied <code>.path.datasets</code>. That iteration directory is an
+input to this operation.</p>
+<p>The workflows validate paths before their recursive cleanup: a wipe
+target cannot coincide with, contain or lie inside the source datasets
+directory, or coincide with or contain the working directory. Repeated
+canonical targets are also rejected where several destinations are
+checked together. This guard is not a general no-overwrite policy for
+the lower-level writers or for <code>wipe = FALSE</code>.</p>
+</div>
+<div id="operations-without-library-managed-file-output" class="section level3">
+<h3>Operations without library-managed file output</h3>
+<p><code>oofEnsemble</code> reads models, TRAIN splits and ID sidecars,
+with dataset files as its fallback for ID recovery, and returns the
+reconstructed OOF table. <code>extractChainImportance</code> and
+<code>computeActiveByImportance</code> read models from
+<code>pathModel</code>. <code>activeByImportance</code>,
+<code>activeByShadow</code>, <code>detectOutliers</code>,
+<code>removeOutliersIQR</code>, <code>toNumeric</code> and
+<code>which.nonnum</code> operate on supplied objects. These nine
+operations do not write library-managed product files; the CLI writes
+their return to the required <code>--output</code>. This does not mean
+they all avoid fitting: <code>removeOutliersIQR</code> fits a model in
+memory.</p>
+</div>
+</div>
+<div id="executable-example" class="section level2">
+<h2>Executable example</h2>
+<p>After installation, the following R block creates a fresh directory
+and complete specifications from the public chain example. It only
+prepares inputs; the subsequent commands run the installed CLI. The
+fixture seed and learners are teaching choices, not scientific
+recommendations.</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a>Root <span class="ot">&lt;-</span> <span class="fu">tempfile</span>(<span class="st">&quot;ssel-cli-example-&quot;</span>)</span>
+<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a><span class="fu">dir.create</span>(<span class="fu">file.path</span>(Root, <span class="st">&quot;datasets&quot;</span>), <span class="at">recursive =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a><span class="fu">setwd</span>(Root)</span>
+<span id="cb9-4"><a href="#cb9-4" tabindex="-1"></a>Data <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb9-5"><a href="#cb9-5" tabindex="-1"></a>  <span class="at">SampleID =</span> <span class="fu">c</span>(<span class="fu">paste0</span>(<span class="st">&quot;S&quot;</span>, <span class="dv">1</span><span class="sc">:</span><span class="dv">18</span>), <span class="st">&quot;P1&quot;</span>, <span class="st">&quot;P2&quot;</span>),</span>
+<span id="cb9-6"><a href="#cb9-6" tabindex="-1"></a>  <span class="at">set =</span> <span class="fu">c</span>(<span class="fu">rep</span>(<span class="st">&quot;train&quot;</span>, <span class="dv">18</span>), <span class="st">&quot;predict&quot;</span>, <span class="st">&quot;predict&quot;</span>),</span>
+<span id="cb9-7"><a href="#cb9-7" tabindex="-1"></a>  <span class="at">x =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">20</span>, <span class="at">z =</span> <span class="fu">rep</span>(<span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">1</span>), <span class="dv">10</span>),</span>
+<span id="cb9-8"><a href="#cb9-8" tabindex="-1"></a>  <span class="at">targetA =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="fl">2.4</span>, <span class="fl">1.8</span>, <span class="fl">3.7</span>, <span class="fl">2.9</span>, <span class="fl">5.1</span>, <span class="dv">4</span>, <span class="fl">6.2</span>, <span class="fl">5.4</span>,</span>
+<span id="cb9-9"><a href="#cb9-9" tabindex="-1"></a>              <span class="dv">7</span>, <span class="fl">6.1</span>, <span class="fl">8.3</span>, <span class="fl">7.2</span>, <span class="fl">9.1</span>, <span class="dv">8</span>, <span class="fl">10.5</span>, <span class="fl">9.4</span>, <span class="fl">11.2</span>, <span class="cn">NA</span>, <span class="cn">NA</span>),</span>
+<span id="cb9-10"><a href="#cb9-10" tabindex="-1"></a>  <span class="at">targetB =</span> <span class="fu">c</span>(<span class="fl">2.2</span>, <span class="fl">1.3</span>, <span class="fl">3.6</span>, <span class="fl">2.7</span>, <span class="fl">4.1</span>, <span class="fl">3.8</span>, <span class="fl">5.7</span>, <span class="fl">4.6</span>, <span class="fl">6.5</span>,</span>
+<span id="cb9-11"><a href="#cb9-11" tabindex="-1"></a>              <span class="fl">5.9</span>, <span class="fl">7.8</span>, <span class="fl">6.4</span>, <span class="fl">8.6</span>, <span class="fl">7.5</span>, <span class="fl">9.9</span>, <span class="fl">8.7</span>, <span class="fl">10.4</span>, <span class="fl">9.6</span>, <span class="cn">NA</span>, <span class="cn">NA</span>)</span>
+<span id="cb9-12"><a href="#cb9-12" tabindex="-1"></a>)</span>
+<span id="cb9-13"><a href="#cb9-13" tabindex="-1"></a>utils<span class="sc">::</span><span class="fu">write.csv</span>(Data, <span class="st">&quot;datasets/demo.csv&quot;</span>, <span class="at">row.names =</span> <span class="cn">FALSE</span>, <span class="at">na =</span> <span class="st">&quot;&quot;</span>)</span>
+<span id="cb9-14"><a href="#cb9-14" tabindex="-1"></a>Spec <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
+<span id="cb9-15"><a href="#cb9-15" tabindex="-1"></a>  <span class="at">.path.datasets =</span> <span class="st">&quot;datasets&quot;</span>, <span class="at">.path.train =</span> <span class="st">&quot;train&quot;</span>, <span class="at">.path.model =</span> <span class="st">&quot;model&quot;</span>,</span>
+<span id="cb9-16"><a href="#cb9-16" tabindex="-1"></a>  <span class="at">.path.metrics =</span> <span class="st">&quot;metrics&quot;</span>, <span class="at">.path.response =</span> <span class="st">&quot;response&quot;</span>,</span>
+<span id="cb9-17"><a href="#cb9-17" tabindex="-1"></a>  <span class="at">.path.summary =</span> <span class="st">&quot;summary&quot;</span>, <span class="at">.path.export =</span> <span class="st">&quot;export&quot;</span>,</span>
+<span id="cb9-18"><a href="#cb9-18" tabindex="-1"></a>  <span class="at">key =</span> <span class="st">&quot;SampleID&quot;</span>, <span class="at">responses =</span> <span class="fu">c</span>(<span class="st">&quot;targetA&quot;</span>, <span class="st">&quot;targetB&quot;</span>), <span class="at">datasets =</span> <span class="st">&quot;demo&quot;</span>,</span>
+<span id="cb9-19"><a href="#cb9-19" tabindex="-1"></a>  <span class="at">methods =</span> <span class="st">&quot;lm&quot;</span>, <span class="at">seed =</span> <span class="dv">2026</span>, <span class="at">features =</span> <span class="fu">c</span>(<span class="st">&quot;x&quot;</span>, <span class="st">&quot;z&quot;</span>)</span>
+<span id="cb9-20"><a href="#cb9-20" tabindex="-1"></a>)</span>
+<span id="cb9-21"><a href="#cb9-21" tabindex="-1"></a>jsonlite<span class="sc">::</span><span class="fu">write_json</span>(Spec, <span class="st">&quot;model.json&quot;</span>, <span class="at">auto_unbox =</span> <span class="cn">TRUE</span>, <span class="at">pretty =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb9-22"><a href="#cb9-22" tabindex="-1"></a>Spec<span class="sc">$</span>.path.iter <span class="ot">&lt;-</span> <span class="st">&quot;iter&quot;</span></span>
+<span id="cb9-23"><a href="#cb9-23" tabindex="-1"></a>Spec<span class="sc">$</span>maxIter <span class="ot">&lt;-</span> <span class="dv">1</span></span>
+<span id="cb9-24"><a href="#cb9-24" tabindex="-1"></a>Spec<span class="sc">$</span>tol <span class="ot">&lt;-</span> <span class="dv">0</span></span>
+<span id="cb9-25"><a href="#cb9-25" tabindex="-1"></a>Spec<span class="sc">$</span>patience <span class="ot">&lt;-</span> <span class="dv">2</span></span>
+<span id="cb9-26"><a href="#cb9-26" tabindex="-1"></a>Spec<span class="sc">$</span>sweep <span class="ot">&lt;-</span> <span class="st">&quot;jacobi&quot;</span></span>
+<span id="cb9-27"><a href="#cb9-27" tabindex="-1"></a>jsonlite<span class="sc">::</span><span class="fu">write_json</span>(Spec, <span class="st">&quot;chain.json&quot;</span>, <span class="at">auto_unbox =</span> <span class="cn">TRUE</span>, <span class="at">pretty =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb9-28"><a href="#cb9-28" tabindex="-1"></a>jsonlite<span class="sc">::</span><span class="fu">write_json</span>(<span class="fu">list</span>(</span>
+<span id="cb9-29"><a href="#cb9-29" tabindex="-1"></a>  <span class="at">.path.summary =</span> <span class="st">&quot;summary&quot;</span>, <span class="at">.path.export =</span> <span class="st">&quot;export&quot;</span>, <span class="at">key =</span> <span class="st">&quot;SampleID&quot;</span>,</span>
+<span id="cb9-30"><a href="#cb9-30" tabindex="-1"></a>  <span class="at">responses =</span> <span class="fu">c</span>(<span class="st">&quot;targetA&quot;</span>, <span class="st">&quot;targetB&quot;</span>), <span class="at">location =</span> <span class="fu">c</span>(<span class="st">&quot;x&quot;</span>, <span class="st">&quot;z&quot;</span>),</span>
+<span id="cb9-31"><a href="#cb9-31" tabindex="-1"></a>  <span class="at">locationSources =</span> <span class="st">&quot;datasets/demo.csv&quot;</span></span>
+<span id="cb9-32"><a href="#cb9-32" tabindex="-1"></a>), <span class="st">&quot;post.json&quot;</span>, <span class="at">auto_unbox =</span> <span class="cn">TRUE</span>, <span class="at">pretty =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb9-33"><a href="#cb9-33" tabindex="-1"></a>jsonlite<span class="sc">::</span><span class="fu">write_json</span>(<span class="fu">list</span>(<span class="at">x =</span> <span class="fu">c</span>(<span class="st">&quot;1,25&quot;</span>, <span class="st">&quot;1 234&quot;</span>, <span class="st">&quot;x&quot;</span>)),</span>
+<span id="cb9-34"><a href="#cb9-34" tabindex="-1"></a>                     <span class="st">&quot;numeric.json&quot;</span>, <span class="at">auto_unbox =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb9-35"><a href="#cb9-35" tabindex="-1"></a><span class="fu">saveRDS</span>(<span class="fu">list</span>(</span>
+<span id="cb9-36"><a href="#cb9-36" tabindex="-1"></a>  <span class="at">.path.datasets =</span> <span class="st">&quot;datasets&quot;</span>, <span class="at">.path.work =</span> <span class="st">&quot;semi&quot;</span>, <span class="at">key =</span> <span class="st">&quot;SampleID&quot;</span>,</span>
+<span id="cb9-37"><a href="#cb9-37" tabindex="-1"></a>  <span class="at">responses =</span> <span class="fu">c</span>(<span class="st">&quot;targetA&quot;</span>, <span class="st">&quot;targetB&quot;</span>), <span class="at">datasets =</span> <span class="st">&quot;demo&quot;</span>,</span>
+<span id="cb9-38"><a href="#cb9-38" tabindex="-1"></a>  <span class="at">methods =</span> <span class="fu">c</span>(<span class="st">&quot;lm&quot;</span>, <span class="st">&quot;glm&quot;</span>), <span class="at">seed =</span> <span class="dv">2026</span>, <span class="at">tau =</span> <span class="fl">0.1</span>, <span class="at">maxRounds =</span> <span class="dv">1</span>,</span>
+<span id="cb9-39"><a href="#cb9-39" tabindex="-1"></a>  <span class="at">epsRevert =</span> <span class="cn">Inf</span>, <span class="at">promotionCap =</span> <span class="fl">0.5</span></span>
+<span id="cb9-40"><a href="#cb9-40" tabindex="-1"></a>), <span class="st">&quot;semi.rds&quot;</span>)</span>
+<span id="cb9-41"><a href="#cb9-41" tabindex="-1"></a>Root</span></code></pre></div>
+<p>From that printed directory, run these commands in order. The chain
+replaces the model-stage products using its own documented fresh-run
+policy.</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode sh"><code class="sourceCode bash"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a><span class="ex">ssel</span> toNumeric <span class="at">--spec</span> numeric.json <span class="at">--output</span> numeric-result.rds</span>
+<span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a><span class="ex">ssel</span> modelPipeline <span class="at">--spec</span> model.json</span>
+<span id="cb10-3"><a href="#cb10-3" tabindex="-1"></a><span class="ex">ssel</span> chainPipeline <span class="at">--spec</span> chain.json</span>
+<span id="cb10-4"><a href="#cb10-4" tabindex="-1"></a><span class="ex">ssel</span> postProcess <span class="at">--spec</span> post.json</span>
+<span id="cb10-5"><a href="#cb10-5" tabindex="-1"></a><span class="ex">ssel</span> semiSupervisedPipeline <span class="at">--spec</span> semi.rds <span class="at">--output</span> semi-result.rds</span>
+<span id="cb10-6"><a href="#cb10-6" tabindex="-1"></a><span class="ex">ssel</span> semiSupervisedPipeline <span class="at">--spec</span> semi.rds <span class="at">--output</span> semi-portable</span></code></pre></div>
+<p>The last command executes the semi-supervised pipeline again,
+replacing <code>semi/round/</code>, and saves that run’s return in
+portable form: a new <code>semi-portable/</code> directory with
+<code>result.json</code> and one CSV per table. Run it only if this
+second execution is intended.</p>
+<p>Back in R in the same directory, inspect the complete returned
+objects:</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a><span class="fu">readRDS</span>(<span class="st">&quot;numeric-result.rds&quot;</span>)</span>
+<span id="cb11-2"><a href="#cb11-2" tabindex="-1"></a><span class="fu">readRDS</span>(<span class="st">&quot;semi-result.rds&quot;</span>)<span class="sc">$</span>history</span>
+<span id="cb11-3"><a href="#cb11-3" tabindex="-1"></a>jsonlite<span class="sc">::</span><span class="fu">read_json</span>(<span class="st">&quot;semi-portable/result.json&quot;</span>)<span class="sc">$</span>result<span class="sc">$</span>kind  <span class="co"># &quot;list&quot;</span></span>
+<span id="cb11-4"><a href="#cb11-4" tabindex="-1"></a>utils<span class="sc">::</span><span class="fu">read.csv</span>(<span class="st">&quot;semi-portable/history.csv&quot;</span>)</span>
+<span id="cb11-5"><a href="#cb11-5" tabindex="-1"></a>utils<span class="sc">::</span><span class="fu">read.csv</span>(<span class="st">&quot;export/predictions.csv&quot;</span>)</span>
+<span id="cb11-6"><a href="#cb11-6" tabindex="-1"></a>utils<span class="sc">::</span><span class="fu">read.csv</span>(<span class="st">&quot;semi/round/export/Yo.csv&quot;</span>)</span></code></pre></div>
+</div>
+<div id="effects-and-failures" class="section level2">
+<h2>Effects and failures</h2>
+<p>Choose <code>--output</code> separately from the paths the operation
+creates or clears. The CLI checks this return destination before calling
+the function, then refuses to save the return if the function has
+created that path. An existing parent checked before execution can also
+be removed by workflow cleanup. The CLI has no dry-run mode, transaction
+or rollback: a library error can leave partial products, and a
+serialization error happens after the library has run. Portable
+serialization can also leave a partially written result directory.
+Reinvoking the operation to change output format repeats its library
+effects.</p>
+<p>Malformed specifications, unknown or duplicate names, missing
+required arguments, invalid output destinations and library errors exit
+1 with their cause. Warnings remain visible. A successful exit does not
+prove that every model cell had enough data to fit. Learner dependencies
+and scientific validation remain the public library’s contracts.</p>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

@@ -4,8 +4,8 @@
 
 <!-- badges: start -->
 [![R Version](https://img.shields.io/badge/R-%3E%3D%204.1.0-blue)](https://www.r-project.org/)
-[![pkgdown](https://img.shields.io/badge/docs-pkgdown-blue)](https://averriK.github.io/ssel/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![pkgdown](https://img.shields.io/badge/docs-pkgdown-blue)](https://kanameishi.github.io/ssel/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://kanameishi.github.io/ssel/LICENSE.html)
 <!-- badges: end -->
 
 `ssel` provides three related method layers for tabular regression:
@@ -33,6 +33,17 @@ arguments.
 # Released version
 install.packages("ssel")
 ```
+
+The library and the `ssel` command-line interface are installed together from
+the repository root with the product installer, documented in
+`install/USAGE.md`. The R package alone, without the command, installs from a
+checkout with:
+
+```sh
+R CMD INSTALL lib
+```
+
+Open the RStudio project inside `lib/` for package development.
 
 ## Start here
 
@@ -62,28 +73,21 @@ failure conditions are documented in the function reference:
 ?semiSupervisedPipeline
 ```
 
-Rendered documentation: <https://averriK.github.io/ssel/>.
+Rendered documentation: <https://kanameishi.github.io/ssel/>.
 
 ## Public API
 
-Pipeline entry points: `modelPipeline()`, `chainPipeline()`,
-`semiSupervisedPipeline()`, `postProcess()`.
-
-Dataset assembly: `buildDataset()`.
-
-Training and prediction: `trainModel()`, `trainRegressionModel()`,
-`predictModel()`, `aggregateResponses()`.
-
-OOF reconstruction and diagnostics: `oofEnsemble()`, `auditQuantiles()`,
-`auditOverfit()`, `detectOutliers()`.
-
-Companion gates: `extractChainImportance()`, `activeByImportance()`,
-`activeByShadow()`, `computeActiveByImportance()`.
-
-Utilities: `toNumeric()`, `which.nonnum()`, `removeOutliersIQR()`.
+| Family | Functions | Articles |
+| --- | --- | --- |
+| Pipeline entry points | `modelPipeline()`, `chainPipeline()`, `semiSupervisedPipeline()`, `postProcess()` | [Ensemble estimators and residual offsets](https://kanameishi.github.io/ssel/articles/ensemble-theory.html); [Iterative multi-response input expansion](https://kanameishi.github.io/ssel/articles/chain-regression.html); [Range-ratio pseudo-label promotion](https://kanameishi.github.io/ssel/articles/semi-supervised.html) |
+| Dataset assembly | `buildDataset()` | [Getting started with ssel](https://kanameishi.github.io/ssel/articles/ssel-quickstart.html) |
+| Training and prediction | `trainModel()`, `trainRegressionModel()`, `predictModel()`, `aggregateResponses()` | [Ensemble estimators and residual offsets](https://kanameishi.github.io/ssel/articles/ensemble-theory.html) |
+| OOF reconstruction and diagnostics | `oofEnsemble()`, `auditQuantiles()`, `auditOverfit()`, `detectOutliers()` | [Ensemble estimators and residual offsets](https://kanameishi.github.io/ssel/articles/ensemble-theory.html) |
+| Companion gates | `extractChainImportance()`, `activeByImportance()`, `activeByShadow()`, `computeActiveByImportance()` | [Iterative multi-response input expansion](https://kanameishi.github.io/ssel/articles/chain-regression.html) |
+| Utilities | `toNumeric()`, `which.nonnum()`, `removeOutliersIQR()` | [Getting started with ssel](https://kanameishi.github.io/ssel/articles/ssel-quickstart.html) |
 
 Full reference: `help(package = "ssel")` or
-<https://averriK.github.io/ssel/reference/>.
+<https://kanameishi.github.io/ssel/reference/>.
 
 ## Citation
 
@@ -92,14 +96,13 @@ Full reference: `help(package = "ssel")` or
   title  = {{ssel}: Semi-Supervised Ensemble Learning},
   author = {Verri Kozlowski, Alejandro},
   year   = {2026},
-  note   = {R package version 0.3.1},
-  url    = {https://averriK.github.io/ssel/}
+  url    = {https://kanameishi.github.io/ssel/}
 }
 ```
 
 ## License and contact
 
-MIT; see [LICENSE](LICENSE). The maintainer is Alejandro Verri Kozlowski
+MIT; see [LICENSE](https://kanameishi.github.io/ssel/LICENSE.html). The maintainer is Alejandro Verri Kozlowski
 ([ORCID 0000-0002-8535-1170](https://orcid.org/0000-0002-8535-1170)),
 Universidad de Buenos Aires, Facultad de Ingenieria. Contact information is
 listed in `DESCRIPTION`.

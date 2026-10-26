@@ -377,12 +377,8 @@ predictive uncertainty.</p>
 <p>Let <span class="math inline">\(s=0,1,\ldots\)</span> index rounds,
 <span class="math inline">\(r\)</span> a response, <span class="math inline">\(u\)</span> a prediction-row key, <span class="math inline">\(m\)</span> a learner, and <span class="math inline">\(d\)</span> a dataset. The first retained input CSV
 alone defines two ordered row-level vectors:</p>
-<p><span class="math display">\[
-L=(u:\texttt{set}=&quot;train&quot;).
-\]</span></p>
-<p><span class="math display">\[
-U=(u:\texttt{set}=&quot;predict&quot;).
-\]</span></p>
+<p><span class="math display">\[L=(u:\texttt{set}=&quot;train&quot;).\]</span></p>
+<p><span class="math display">\[U=(u:\texttt{set}=&quot;predict&quot;).\]</span></p>
 <p>These are vectors, not mathematical sets: order, duplicates, and
 missing keys remain. Consequently, <span class="math inline">\(|U|=\operatorname{length}(U)\)</span> counts rows,
 while a later promotion budget spends unique keys. Other input CSVs are
@@ -410,24 +406,19 @@ return value is <code>NA_integer_</code>.</p>
 <p>For original prediction key <span class="math inline">\(u\)</span>,
 response <span class="math inline">\(r\)</span>, and round <span class="math inline">\(s\)</span>, collect all available projected
 ordinary base-method predictions across configured datasets:</p>
-<p><span class="math display">\[
-A_{ur}^{(s)}=
-\{f_{mdr}^{(s)}(u)\}_{\mathrm{available}}.
-\]</span></p>
-<p><span class="math display">\[
-S_{ur}^{(s)}=\max A_{ur}^{(s)}-\min A_{ur}^{(s)}.
-\]</span></p>
+<p><span class="math display">\[A_{ur}^{(s)}=
+\{f_{mdr}^{(s)}(u)\}_{\mathrm{available}}.\]</span></p>
+<p><span class="math display">\[S_{ur}^{(s)}=\max A_{ur}^{(s)}-\min
+A_{ur}^{(s)}.\]</span></p>
 <p>A pair is eligible only when at least two distinct method names are
 available; multiple datasets from one method do not satisfy this
 condition. Let <span class="math inline">\(\bar
 f_{ur,last}^{(s)}(u)\)</span> be the last matching ordinary
 <code>ensemble.RMSE</code> value in response-file concatenation and
 update order. ssel defines</p>
-<p><span class="math display">\[
-D_{ur}^{(s)}=
+<p><span class="math display">\[D_{ur}^{(s)}=
 \frac{S_{ur}^{(s)}}
-     {\max\{1,|\bar f_{ur,last}^{(s)}(u)|\}}.
-\]</span></p>
+     {\max\{1,|\bar f_{ur,last}^{(s)}(u)|\}}.\]</span></p>
 <p>Promotion uses the strict comparison <span class="math inline">\(D_{ur}^{(s)}&lt;\tau\)</span>. Equal finite base
 predictions give <span class="math inline">\(D=0\)</span>; a missing
 member makes the score missing. The score is dimensionless, but the
@@ -447,9 +438,8 @@ calibration.</p>
 <span class="math inline">\(P\)</span> be the accepted pseudo-label
 table, and let <span class="math inline">\(K(P)\)</span> be its unique
 keys. The remaining key budget is</p>
-<p><span class="math display">\[
-B_s=\lfloor c|U|\rfloor-|K(P)|.
-\]</span></p>
+<p><span class="math display">\[B_s=\lfloor
+c|U|\rfloor-|K(P)|.\]</span></p>
 <p>Candidate response pairs are ordered by ascending score.
 First-encountered new keys consume the budget; all eligible response
 pairs for retained keys remain. Pseudo-label values are
@@ -474,10 +464,8 @@ change the effective cap.</p>
 residual rows whose key occurs in the original labelled vector <span class="math inline">\(L\)</span>. Rows from all datasets and duplicates
 retain their multiplicity. The response score is squared sample
 correlation, and the round gauge is</p>
-<p><span class="math display">\[
-g_s=\operatorname{mean}_r
-\{\operatorname{cor}(y,\hat y_{OOF})^2\}.
-\]</span></p>
+<p><span class="math display">\[g_s=\operatorname{mean}_r
+\{\operatorname{cor}(y,\hat y_{OOF})^2\}.\]</span></p>
 <p>Missing response-level scores are omitted; surviving responses
 receive equal weight rather than row-count weight. This gauge uses
 <code>oofEnsemble()</code>’s independent cell-local inverse-RMSE
@@ -486,9 +474,7 @@ a guarantee of generalization gain.</p>
 <p>Let <span class="math inline">\(b_{s-1}\)</span> be the historical
 best gauge and <span class="math inline">\(\varepsilon=\texttt{epsRevert}\)</span>. A
 candidate is rejected only when</p>
-<p><span class="math display">\[
-g_s&lt;b_{s-1}-\varepsilon.
-\]</span></p>
+<p><span class="math display">\[g_s&lt;b_{s-1}-\varepsilon.\]</span></p>
 <p>Equality is accepted. On acceptance, <span class="math inline">\(b_s=\max\{b_{s-1},g_s\}\)</span>, so the accepted
 fitted state may be up to <span class="math inline">\(\varepsilon\)</span> below the historical maximum.
 Returned <code>finalR2</code> is that historical maximum; it is not
@@ -537,46 +523,73 @@ restoration gauge. The function returns <code>history</code>, accepted
 <code>promoted</code> label rows (or <code>NULL</code>),
 <code>baselineR2</code>, historical-best <code>finalR2</code>, and
 <code>iterStar</code>; it does not return a fitted model.</p>
-<p>A minimal call has the following shape. See
-<code>?semiSupervisedPipeline</code> for the complete executable
-temporary-directory example and all validation and file contracts.</p>
-<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a>result <span class="ot">&lt;-</span> <span class="fu">semiSupervisedPipeline</span>(</span>
-<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a>  <span class="at">.path.datasets =</span> datasets_dir,</span>
-<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a>  <span class="at">.path.work =</span> work_dir,</span>
-<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a>  <span class="at">key =</span> <span class="st">&quot;SampleID&quot;</span>,</span>
-<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a>  <span class="at">responses =</span> <span class="st">&quot;target&quot;</span>,</span>
-<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a>  <span class="at">allResponses =</span> <span class="st">&quot;target&quot;</span>,</span>
-<span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a>  <span class="at">datasets =</span> <span class="st">&quot;demo&quot;</span>,</span>
-<span id="cb3-8"><a href="#cb3-8" tabindex="-1"></a>  <span class="at">methods =</span> <span class="fu">c</span>(<span class="st">&quot;lm&quot;</span>, <span class="st">&quot;glm&quot;</span>),</span>
-<span id="cb3-9"><a href="#cb3-9" tabindex="-1"></a>  <span class="at">seed =</span> <span class="dv">2026</span>,</span>
-<span id="cb3-10"><a href="#cb3-10" tabindex="-1"></a>  <span class="at">tau =</span> <span class="fl">0.1</span>,</span>
-<span id="cb3-11"><a href="#cb3-11" tabindex="-1"></a>  <span class="at">maxRounds =</span> <span class="dv">1</span>,</span>
-<span id="cb3-12"><a href="#cb3-12" tabindex="-1"></a>  <span class="at">epsRevert =</span> <span class="cn">Inf</span>,</span>
-<span id="cb3-13"><a href="#cb3-13" tabindex="-1"></a>  <span class="at">promotionCap =</span> <span class="fl">0.5</span></span>
-<span id="cb3-14"><a href="#cb3-14" tabindex="-1"></a>)</span>
-<span id="cb3-15"><a href="#cb3-15" tabindex="-1"></a>result<span class="sc">$</span>history</span></code></pre></div>
+<p>This complete example creates its own inputs and working
+directory.</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a>root <span class="ot">&lt;-</span> <span class="fu">tempfile</span>(<span class="st">&quot;ssel-semi-&quot;</span>)</span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a>datasets_dir <span class="ot">&lt;-</span> <span class="fu">file.path</span>(root, <span class="st">&quot;datasets&quot;</span>)</span>
+<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a><span class="fu">dir.create</span>(datasets_dir, <span class="at">recursive =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a></span>
+<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a>n_train <span class="ot">&lt;-</span> <span class="dv">30</span><span class="dt">L</span></span>
+<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a>assembled <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a>  <span class="at">SampleID =</span> <span class="fu">c</span>(<span class="fu">paste0</span>(<span class="st">&quot;S&quot;</span>, <span class="fu">seq_len</span>(n_train)), <span class="st">&quot;P1&quot;</span>, <span class="st">&quot;P2&quot;</span>),</span>
+<span id="cb3-8"><a href="#cb3-8" tabindex="-1"></a>  <span class="at">set =</span> <span class="fu">c</span>(<span class="fu">rep</span>(<span class="st">&quot;train&quot;</span>, n_train), <span class="st">&quot;predict&quot;</span>, <span class="st">&quot;predict&quot;</span>),</span>
+<span id="cb3-9"><a href="#cb3-9" tabindex="-1"></a>  <span class="at">x =</span> <span class="fu">seq_len</span>(n_train <span class="sc">+</span> <span class="dv">2</span><span class="dt">L</span>),</span>
+<span id="cb3-10"><a href="#cb3-10" tabindex="-1"></a>  <span class="at">z =</span> <span class="fu">rep</span>(<span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">1</span>), <span class="at">length.out =</span> n_train <span class="sc">+</span> <span class="dv">2</span><span class="dt">L</span>),</span>
+<span id="cb3-11"><a href="#cb3-11" tabindex="-1"></a>  <span class="at">target =</span> <span class="fu">c</span>(</span>
+<span id="cb3-12"><a href="#cb3-12" tabindex="-1"></a>    <span class="fl">1.5</span> <span class="sc">*</span> <span class="fu">seq_len</span>(n_train) <span class="sc">+</span> <span class="fu">rep</span>(<span class="fu">c</span>(<span class="sc">-</span><span class="fl">0.4</span>, <span class="fl">0.2</span>, <span class="fl">0.6</span>), <span class="dv">10</span>),</span>
+<span id="cb3-13"><a href="#cb3-13" tabindex="-1"></a>    <span class="cn">NA</span>, <span class="cn">NA</span></span>
+<span id="cb3-14"><a href="#cb3-14" tabindex="-1"></a>  )</span>
+<span id="cb3-15"><a href="#cb3-15" tabindex="-1"></a>)</span>
+<span id="cb3-16"><a href="#cb3-16" tabindex="-1"></a>utils<span class="sc">::</span><span class="fu">write.csv</span>(</span>
+<span id="cb3-17"><a href="#cb3-17" tabindex="-1"></a>  assembled, <span class="fu">file.path</span>(datasets_dir, <span class="st">&quot;demo.csv&quot;</span>),</span>
+<span id="cb3-18"><a href="#cb3-18" tabindex="-1"></a>  <span class="at">row.names =</span> <span class="cn">FALSE</span>, <span class="at">na =</span> <span class="st">&quot;&quot;</span></span>
+<span id="cb3-19"><a href="#cb3-19" tabindex="-1"></a>)</span>
+<span id="cb3-20"><a href="#cb3-20" tabindex="-1"></a></span>
+<span id="cb3-21"><a href="#cb3-21" tabindex="-1"></a>old_quiet <span class="ot">&lt;-</span> <span class="fu">getOption</span>(<span class="st">&quot;aR.quiet&quot;</span>)</span>
+<span id="cb3-22"><a href="#cb3-22" tabindex="-1"></a><span class="fu">options</span>(<span class="at">aR.quiet =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb3-23"><a href="#cb3-23" tabindex="-1"></a>result <span class="ot">&lt;-</span> <span class="fu">semiSupervisedPipeline</span>(</span>
+<span id="cb3-24"><a href="#cb3-24" tabindex="-1"></a>  <span class="at">.path.datasets =</span> datasets_dir,</span>
+<span id="cb3-25"><a href="#cb3-25" tabindex="-1"></a>  <span class="at">.path.work =</span> <span class="fu">file.path</span>(root, <span class="st">&quot;work&quot;</span>),</span>
+<span id="cb3-26"><a href="#cb3-26" tabindex="-1"></a>  <span class="at">key =</span> <span class="st">&quot;SampleID&quot;</span>,</span>
+<span id="cb3-27"><a href="#cb3-27" tabindex="-1"></a>  <span class="at">responses =</span> <span class="st">&quot;target&quot;</span>,</span>
+<span id="cb3-28"><a href="#cb3-28" tabindex="-1"></a>  <span class="at">allResponses =</span> <span class="st">&quot;target&quot;</span>,</span>
+<span id="cb3-29"><a href="#cb3-29" tabindex="-1"></a>  <span class="at">datasets =</span> <span class="st">&quot;demo&quot;</span>,</span>
+<span id="cb3-30"><a href="#cb3-30" tabindex="-1"></a>  <span class="at">methods =</span> <span class="fu">c</span>(<span class="st">&quot;lm&quot;</span>, <span class="st">&quot;glm&quot;</span>),</span>
+<span id="cb3-31"><a href="#cb3-31" tabindex="-1"></a>  <span class="at">seed =</span> <span class="dv">2026</span>,</span>
+<span id="cb3-32"><a href="#cb3-32" tabindex="-1"></a>  <span class="at">tau =</span> <span class="fl">0.1</span>,</span>
+<span id="cb3-33"><a href="#cb3-33" tabindex="-1"></a>  <span class="at">maxRounds =</span> <span class="dv">1</span>,</span>
+<span id="cb3-34"><a href="#cb3-34" tabindex="-1"></a>  <span class="at">epsRevert =</span> <span class="cn">Inf</span>,</span>
+<span id="cb3-35"><a href="#cb3-35" tabindex="-1"></a>  <span class="at">promotionCap =</span> <span class="fl">0.5</span></span>
+<span id="cb3-36"><a href="#cb3-36" tabindex="-1"></a>)</span>
+<span id="cb3-37"><a href="#cb3-37" tabindex="-1"></a><span class="fu">options</span>(<span class="at">aR.quiet =</span> old_quiet)</span>
+<span id="cb3-38"><a href="#cb3-38" tabindex="-1"></a></span>
+<span id="cb3-39"><a href="#cb3-39" tabindex="-1"></a>result<span class="sc">$</span>history</span>
+<span id="cb3-40"><a href="#cb3-40" tabindex="-1"></a>result<span class="sc">$</span>promoted</span>
+<span id="cb3-41"><a href="#cb3-41" tabindex="-1"></a><span class="fu">c</span>(<span class="at">baseline =</span> result<span class="sc">$</span>baselineR2, <span class="at">historical_best =</span> result<span class="sc">$</span>finalR2)</span>
+<span id="cb3-42"><a href="#cb3-42" tabindex="-1"></a><span class="co"># The one-round policy promotes at most one of the two original keys.</span></span>
+<span id="cb3-43"><a href="#cb3-43" tabindex="-1"></a><span class="co"># iterStar is NA because no chain iteration directory was supplied.</span></span>
+<span id="cb3-44"><a href="#cb3-44" tabindex="-1"></a></span>
+<span id="cb3-45"><a href="#cb3-45" tabindex="-1"></a><span class="fu">unlink</span>(root, <span class="at">recursive =</span> <span class="cn">TRUE</span>)</span></code></pre></div>
 </div>
 <div id="final-re-emission-boundary" class="section level2">
 <h2>Final re-emission boundary</h2>
 <p>Every baseline, candidate, and restoration fit rebuilds the current
-round and calls the supervised workflow with the same seed. After the
-loop, the function rebuilds TEST files for the original prediction
-vector <span class="math inline">\(U\)</span> and runs a serial
-<code>trainRegressionModel(TRAIN = FALSE)</code> pass. That pass
-overwrites cell metric and response files only. It does not rerun
-offset, summary, optimism, or final aggregation helpers; those products
-remain from the preceding full round.</p>
-<p>This boundary matters when interpreting files after promotion.
-“Re-emission” means original-pool cell predictions, not regeneration of
-every summary and export product.</p>
+round with the same seed. After the loop, each final TEST split uses the
+fitted TRAIN feature schema and the original prediction keys. A serial
+<code>trainRegressionModel(TRAIN = FALSE)</code> pass refreshes cell
+metrics and responses, then the shared prediction-summary calculation
+and <code>aggregateResponses()</code> refresh summaries and exports for
+that complete pool, including promoted keys.</p>
+<p>Fitted models and OOF residuals, offsets and optimism diagnostics
+remain those of the accepted full round. Delivery refresh does not fit
+or evaluate again.</p>
 </div>
 <div id="limitations" class="section level2">
 <h2>Limitations</h2>
 <ul>
-<li>A successful standalone teaching call uses one response. A
-standalone multi-response call can finish its full rounds and then fail
-final serial evaluation because other target columns remain as extra
-TEST-only columns.</li>
+<li>A standalone call supports multiple responses. A chain warm start
+still requires exactly one response and an existing selected dataset
+snapshot.</li>
 <li>Bounds are not reordered. For <span class="math inline">\(a&gt;b\)</span>, ordinary evaluation and OOF
 reconstruction execute different nested minimum/maximum operations;
 neither is interval projection.</li>

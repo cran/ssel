@@ -62,7 +62,9 @@ parallel execution or a convergence theorem.
 
 ## Asymmetric Gauss--Seidel recurrence
 
-Gauss--Seidel targets are processed in sorted response-name order. Write
+Gauss--Seidel targets are processed in sorted response-name order. That
+order does not depend on the session locale: ASCII case is ignored, and `_`
+and `.` sort before any other character. Write
 $k\prec j$ when $k$ precedes $j$. Earlier targets can supply new
 training-row values to later targets in the same sweep:
 

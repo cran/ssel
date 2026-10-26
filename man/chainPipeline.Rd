@@ -168,7 +168,9 @@ for a training row and
 \deqn{\{Z_k^{(t-1)}(u):k\in A^{(t-1)},k\ne j\}}
 for a prediction row.
 
-Gauss--Seidel targets are processed in sorted response-name order. The
+Gauss--Seidel targets are processed in sorted response-name order. That
+order does not depend on the session locale: ASCII case is ignored, and
+\code{_} and \code{.} sort before any other character. The
 augmented CSVs are rebuilt before every target. Earlier targets' new
 training-row values can therefore enter later targets through the evolving
 \code{Y.csv}; later targets retain their preceding-sweep values. In contrast,

@@ -30,8 +30,8 @@
 #   normalize: identity | closure (target)
 #
 # Location source: a CSV path (or a list of candidate paths) containing
-# the key column plus the location columns. The first existing file
-# carrying all `location` cols wins. Common conventions like
+# the key column plus the location columns. All existing files carrying
+# those columns are combined, retaining the first row per key. Conventions like
 # `data/domains/index.csv` and `data/iter/Xo.csv` are accepted.
 
 `%||%` <- function(a, b) if (!is.null(a)) a else b
@@ -107,9 +107,9 @@
 #' @param location Character vector of location columns to carry from
 #'   the project's identity source into `predictions.csv` / `audit.csv`.
 #' @param locationSources Character vector of candidate file paths
-#'   from which to read `(key, location)`. The first file carrying all
-#'   required columns is used; otherwise the union of all matching
-#'   files is taken.
+#'   from which to read `(key, location)`. All existing files carrying
+#'   the required columns are combined in source order, retaining the first
+#'   row for each key.
 #' @param transform Element-wise transform spec, a list with `op` and
 #'   op-specific params. Supported: `list(op="identity")` (default
 #'   when NULL), `list(op="log", base=10)`, `list(op="exp", base=exp(1))`.
@@ -136,9 +136,13 @@ postProcess <- function(
     boundsMin = -Inf,
     boundsMax = Inf
 ) {
+  .keysOld <- options(datatable.keepLeadingZeros = TRUE)
+  on.exit(options(.keysOld), add = TRUE)
   stopifnot(is.character(key), nzchar(key))
   stopifnot(is.character(responses), length(responses) > 0L)
   stopifnot(is.character(location), length(location) > 0L)
+  .checkBound(boundsMin, "boundsMin")
+  .checkBound(boundsMax, "boundsMax")
 
   .clamp <- function(x) pmax(boundsMin, pmin(boundsMax, x))
 
@@ -206,7 +210,7 @@ postProcess <- function(
   setnames(WIDE.raw, paste0("value_", responses), responses)
   setnames(WIDE.raw, paste0("r2_",    responses), paste0("R2.", PHASES))
 
-  ORD <- order(PHASES)
+  ORD <- .portableOrder(PHASES)
   PIVOT.keys <- c(key, location, "p")
   COL.order <- c(PIVOT.keys,
                  unlist(lapply(ORD, function(i)

@@ -35,9 +35,9 @@ Created if missing.}
 the project's identity source into \code{predictions.csv} / \code{audit.csv}.}
 
 \item{locationSources}{Character vector of candidate file paths
-from which to read \verb{(key, location)}. The first file carrying all
-required columns is used; otherwise the union of all matching
-files is taken.}
+from which to read \verb{(key, location)}. All existing files carrying
+the required columns are combined in source order, retaining the first
+row for each key.}
 
 \item{transform}{Element-wise transform spec, a list with \code{op} and
 op-specific params. Supported: \code{list(op="identity")} (default

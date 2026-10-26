@@ -38,7 +38,9 @@ feature columns in \code{X.csv} and \code{Xo.csv}.}
 Feature extraction uses the last declared file that actually exists.}
 
 \item{boundsMin, boundsMax}{Numeric response bounds used to project every
-point-plus-offset value. Their order and finiteness are not validated.}
+point-plus-offset value. Each must be a single non-\code{NA} numeric
+value; \code{Inf} and \code{-Inf} are allowed. Their order and finiteness
+are not validated.}
 
 \item{.path.iter}{\code{NULL}, or an iteration directory. When non-null, its
 parent path for \code{Y.csv} is created recursively and the training-row

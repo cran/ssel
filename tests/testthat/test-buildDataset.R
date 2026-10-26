@@ -21,9 +21,14 @@ test_that("buildDataset legacy feature inference is unchanged", {
     file.path(Datasets, "D.csv")
   )
 
-  buildDataset(.path.input = Datasets, .path.train = Train,
-               Y.PATTERN = "^(xrd.A)$", KEY = "SampleID",
-               SET_COL = "set")
+  # Stage 9 drops TEST rows whose predictors leave the training support;
+  # the warning is part of the contract, not noise.
+  expect_warning(
+    buildDataset(.path.input = Datasets, .path.train = Train,
+                 Y.PATTERN = "^(xrd.A)$", KEY = "SampleID",
+                 SET_COL = "set"),
+    "Dropping 2 TEST rows", fixed = TRUE
+  )
 
   DT <- data.table::fread(file.path(Train, "xrd.A_D_TRAIN.csv"))
   expect_setequal(names(DT), c("f1", "f2", "xrd.B", "y"))

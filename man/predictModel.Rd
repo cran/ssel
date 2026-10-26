@@ -53,7 +53,9 @@ standard producer writes only 0.50, 0.90, and 0.95.}
 
 \item{.min, .max}{Numeric response bounds. Base point predictions are
 projected by the evaluation engine; each point-plus-offset value is
-projected again. Bound order and finiteness are not validated.}
+projected again. Each must be a single non-\code{NA} numeric value;
+\code{Inf} and \code{-Inf} are allowed. Bound order and finiteness are
+not validated.}
 
 \item{.ensemble}{A value in \code{c("ensemble.R2", "ensemble.RMSE")}.
 It selects both the metric and method label used by the response-level

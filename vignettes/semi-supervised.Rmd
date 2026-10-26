@@ -169,14 +169,34 @@ accepted pool, but it does not recompute the restoration gauge. The function
 returns `history`, accepted `promoted` label rows (or `NULL`), `baselineR2`,
 historical-best `finalR2`, and `iterStar`; it does not return a fitted model.
 
-A minimal call has the following shape. See `?semiSupervisedPipeline` for the
-complete executable temporary-directory example and all validation and file
-contracts.
+This complete example creates its own inputs and working directory.
 
-```{r call-shape, eval = FALSE}
+```{r semi-example, eval = FALSE}
+root <- tempfile("ssel-semi-")
+datasets_dir <- file.path(root, "datasets")
+dir.create(datasets_dir, recursive = TRUE)
+
+n_train <- 30L
+assembled <- data.frame(
+  SampleID = c(paste0("S", seq_len(n_train)), "P1", "P2"),
+  set = c(rep("train", n_train), "predict", "predict"),
+  x = seq_len(n_train + 2L),
+  z = rep(c(0, 1), length.out = n_train + 2L),
+  target = c(
+    1.5 * seq_len(n_train) + rep(c(-0.4, 0.2, 0.6), 10),
+    NA, NA
+  )
+)
+utils::write.csv(
+  assembled, file.path(datasets_dir, "demo.csv"),
+  row.names = FALSE, na = ""
+)
+
+old_quiet <- getOption("aR.quiet")
+options(aR.quiet = TRUE)
 result <- semiSupervisedPipeline(
   .path.datasets = datasets_dir,
-  .path.work = work_dir,
+  .path.work = file.path(root, "work"),
   key = "SampleID",
   responses = "target",
   allResponses = "target",
@@ -188,27 +208,33 @@ result <- semiSupervisedPipeline(
   epsRevert = Inf,
   promotionCap = 0.5
 )
+options(aR.quiet = old_quiet)
+
 result$history
+result$promoted
+c(baseline = result$baselineR2, historical_best = result$finalR2)
+# The one-round policy promotes at most one of the two original keys.
+# iterStar is NA because no chain iteration directory was supplied.
+
+unlink(root, recursive = TRUE)
 ```
 
 ## Final re-emission boundary
 
-Every baseline, candidate, and restoration fit rebuilds the current round and
-calls the supervised workflow with the same seed. After the loop, the function
-rebuilds TEST files for the original prediction vector $U$ and runs a serial
-`trainRegressionModel(TRAIN = FALSE)` pass. That pass overwrites cell metric
-and response files only. It does not rerun offset, summary, optimism, or final
-aggregation helpers; those products remain from the preceding full round.
+Every baseline, candidate, and restoration fit rebuilds the current round
+with the same seed. After the loop, each final TEST split uses the fitted
+TRAIN feature schema and the original prediction keys. A serial
+`trainRegressionModel(TRAIN = FALSE)` pass refreshes cell metrics and responses,
+then the shared prediction-summary calculation and `aggregateResponses()`
+refresh summaries and exports for that complete pool, including promoted keys.
 
-This boundary matters when interpreting files after promotion. “Re-emission”
-means original-pool cell predictions, not regeneration of every summary and
-export product.
+Fitted models and OOF residuals, offsets and optimism diagnostics remain those
+of the accepted full round. Delivery refresh does not fit or evaluate again.
 
 ## Limitations
 
-- A successful standalone teaching call uses one response. A standalone
-  multi-response call can finish its full rounds and then fail final serial
-  evaluation because other target columns remain as extra TEST-only columns.
+- A standalone call supports multiple responses. A chain warm start still
+  requires exactly one response and an existing selected dataset snapshot.
 - Bounds are not reordered. For $a>b$, ordinary evaluation and OOF
   reconstruction execute different nested minimum/maximum operations; neither
   is interval projection.

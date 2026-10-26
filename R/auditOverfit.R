@@ -2,8 +2,6 @@
 # *****************************************************************************
 # auditOverfit - in-sample vs cross-validation memorisation audit.
 #
-# Per docs/handoff/03-overfit-memorization-audit.md.
-#
 # Per-method (written to data/summary/overfit.csv):
 # For every caret::train object in .path.model: predict in-sample, compute the
 # in-sample RMSE; read model$resample (per-fold CV metrics) for the CV RMSE.
@@ -12,8 +10,8 @@
 # A value near 1 means the in-sample error is near zero while the honest CV
 # error is large - the model memorised the training set.
 #
-# Thresholds are provided by the caller (defaults empirically derived from the
-# current CMM data; see handoff section "Why the thresholds are 0.95 and 0.60").
+# Thresholds are provided by the caller; the defaults 0.95 and 0.60 were derived
+# empirically from the CMM data.
 # *****************************************************************************
 
 #' @export
@@ -23,41 +21,58 @@ auditOverfit <- function(.path.model, .path.train, .path.summary,
                         REL_OPTIMISM_HIGH         = 0.60,
                         .response_pattern         = NULL,
                         verbose                   = TRUE) {
+  .keysOld <- options(datatable.keepLeadingZeros = TRUE)
+  on.exit(options(.keysOld), add = TRUE)
   stopifnot(!is.null(.response_pattern),
             is.character(.response_pattern),
             nzchar(.response_pattern))
+  .checkBound(.min, ".min")
+  .checkBound(.max, ".max")
 
   clamp <- function(x) pmax(.min, pmin(.max, x))
 
-  files       <- list.files(.path.model, pattern = "\\.Rds$", full.names = TRUE)
+  files       <- .listFiles(.path.model, pattern = "\\.Rds$", full.names = TRUE)
   fname_regex <- sprintf("^([^_]+)_(%s)_(.+)\\.Rds$", .response_pattern)
   rows        <- list()
+  matched     <- 0L
+  failed      <- list()
 
   for (f in files) {
     # Model filename pattern: <method>_<response>_<dataset>.Rds
     m <- regmatches(basename(f), regexec(fname_regex, basename(f)))[[1]]
     if (length(m) < 4) next
     method <- m[2]; response <- m[3]; dataset <- m[4]
+    matched <- matched + 1L
+    Name    <- basename(f)
 
     train_file <- file.path(.path.train, paste0(response, "_", dataset, "_TRAIN.csv"))
-    if (!file.exists(train_file)) next
+    if (!file.exists(train_file)) {
+      failed[[Name]] <- "TRAIN file not found"; next
+    }
     DT    <- fread(train_file)
     y     <- suppressWarnings(as.numeric(DT$y))
 
     model <- tryCatch(readRDS(f), error = function(e) NULL)
-    if (is.null(model)) next
+    if (is.null(model)) {
+      failed[[Name]] <- "model could not be read"; next
+    }
 
     # In-sample RMSE + R2 (clamped to physical bounds)
     yhat_in <- tryCatch(clamp(as.numeric(predict(model, newdata = DT))),
                         error = function(e) NULL)
-    if (is.null(yhat_in) || length(yhat_in) != length(y)) next
+    if (is.null(yhat_in) || length(yhat_in) != length(y)) {
+      failed[[Name]] <- "prediction failed or its length disagrees with TRAIN"
+      next
+    }
 
     rmse_in <- sqrt(mean((y - yhat_in)^2))
     r2_in   <- if (var(y) == 0) NA_real_ else suppressWarnings(cor(y, yhat_in))^2
 
     # Per-fold CV metrics (one row per fold in model$resample)
     res <- model$resample
-    if (is.null(res) || nrow(res) == 0) next
+    if (is.null(res) || nrow(res) == 0) {
+      failed[[Name]] <- "no resample table"; next
+    }
     rmse_cv <- suppressWarnings(as.numeric(res$RMSE))
     r2_cv   <- suppressWarnings(as.numeric(res$Rsquared))
 
@@ -92,8 +107,13 @@ auditOverfit <- function(.path.model, .path.train, .path.summary,
   }
 
   out <- rbindlist(rows)
+  .reportAudit("auditOverfit", .path.model, .response_pattern, length(files),
+               matched, failed, cells = nrow(out))
   if (!dir.exists(.path.summary)) dir.create(.path.summary, recursive = TRUE)
   out_file <- file.path(.path.summary, "overfit.csv")
+  # An empty table does not overwrite: fwrite() refuses a column-less input,
+  # so any previous overfit.csv survives an audit that found nothing. The
+  # warnings above are what tells the caller the file is not from this run.
   fwrite(out, out_file)
 
   if (verbose) {

@@ -100,18 +100,28 @@ For every retained model, \code{overfit.csv} contains \code{method},
 \code{flag}. RMSE and optimism fields have response units; relative optimism
 and R-squared fields are dimensionless.
 
-Nonmatching filenames, absent TRAIN files, unreadable models, failed
-predictions, prediction-length mismatches, and missing or empty resample
-tables are skipped silently. Numeric coercion and summary edge cases retain
-base R behavior, including missing or infinite fields and warnings. If no
-model survives, \code{data.table::fwrite()} warns and creates a zero-byte
-\code{overfit.csv}. With call-level reporting disabled, or with either
-global debug gate closed, the function then returns a zero-row, zero-column
-table. When \code{verbose = TRUE}, \code{aR.verbose = TRUE}, and
-\code{aR.quiet = FALSE}, flag-count evaluation references the absent
-\code{flag} column and errors after the file is written, so no list is
-returned. Malformed-column, data.table, and file errors not caught by the
-helper propagate.
+A filename that does not match \code{.response_pattern} is filtered out
+silently: excluding responses is what the pattern is for. A file that does
+match and still cannot be audited -- absent TRAIN file, unreadable model,
+failed prediction, prediction-length mismatch, or a missing or empty
+resample table -- is skipped and reported by a warning naming the file and
+the reason. A second warning reports an audit that produced nothing at all,
+distinguishing a pattern that matched no filename from matches that were
+all skipped. Numeric coercion and summary edge cases retain base R
+behavior, including missing or infinite fields and warnings.
+
+When no model survives, the written file depends on what was already
+there. \code{data.table::fwrite()} refuses a column-less table, so an
+existing \code{overfit.csv} is left untouched and still holds the previous
+run's verdict with nothing in the file itself to mark it stale; the
+warnings above are that signal. With no previous file, \code{fwrite()}
+warns and creates a zero-byte \code{overfit.csv}. With call-level
+reporting disabled, or with either global debug gate closed, the function
+then returns a zero-row, zero-column table. When \code{verbose = TRUE},
+\code{aR.verbose = TRUE}, and \code{aR.quiet = FALSE}, flag-count
+evaluation references the absent \code{flag} column and errors after the
+file is written, so no list is returned. Malformed-column, data.table, and
+file errors not caught by the helper propagate.
 
 The function reads models and training data, writes only
 \code{overfit.csv}, does not fit models, and neither sets a seed nor draws

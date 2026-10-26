@@ -58,7 +58,7 @@ Assembled <- data.frame(
   set = RowRole,
   thickness_mm = ThicknessMm,
   moisture_pct = MoisturePct,
-  strength_mpa = StrengthMpa
+  strengthMpa = StrengthMpa
 )
 
 InputFile <- file.path(
@@ -76,7 +76,7 @@ utils::write.csv(
 buildDataset(
   .path.input = InputDir,
   .path.train = OutputDir,
-  Y.PATTERN = "^strength_mpa$",
+  Y.PATTERN = "^strengthMpa$",
   KEY = "SampleID",
   features = c(
     "thickness_mm",

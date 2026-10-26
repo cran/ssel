@@ -484,8 +484,11 @@ using the column as a predictor or response.</p>
 <div id="create-the-three-model-input-products" class="section level2">
 <h2>Create the three model-input products</h2>
 <p>The example uses mm for <code>thickness_mm</code>, percent for
-<code>moisture_pct</code>, and MPa for <code>strength_mpa</code>. Those
-units are an input convention: ssel does not convert them.</p>
+<code>moisture_pct</code>, and MPa for <code>strengthMpa</code>. Those
+units are an input convention: ssel does not convert them. A feature
+name may contain <code>_</code>; a response or dataset name may not,
+because <code>_</code> separates them in the split filenames created
+below.</p>
 <div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a>Root <span class="ot">&lt;-</span> <span class="fu">tempfile</span>(<span class="st">&quot;ssel-quickstart-&quot;</span>)</span>
 <span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a>InputDir <span class="ot">&lt;-</span> <span class="fu">file.path</span>(</span>
 <span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a>  Root,</span>
@@ -520,7 +523,7 @@ units are an input convention: ssel does not convert them.</p>
 <span id="cb2-32"><a href="#cb2-32" tabindex="-1"></a>  <span class="at">set =</span> RowRole,</span>
 <span id="cb2-33"><a href="#cb2-33" tabindex="-1"></a>  <span class="at">thickness_mm =</span> ThicknessMm,</span>
 <span id="cb2-34"><a href="#cb2-34" tabindex="-1"></a>  <span class="at">moisture_pct =</span> MoisturePct,</span>
-<span id="cb2-35"><a href="#cb2-35" tabindex="-1"></a>  <span class="at">strength_mpa =</span> StrengthMpa</span>
+<span id="cb2-35"><a href="#cb2-35" tabindex="-1"></a>  <span class="at">strengthMpa =</span> StrengthMpa</span>
 <span id="cb2-36"><a href="#cb2-36" tabindex="-1"></a>)</span>
 <span id="cb2-37"><a href="#cb2-37" tabindex="-1"></a></span>
 <span id="cb2-38"><a href="#cb2-38" tabindex="-1"></a>InputFile <span class="ot">&lt;-</span> <span class="fu">file.path</span>(</span>
@@ -538,7 +541,7 @@ units are an input convention: ssel does not convert them.</p>
 <span id="cb2-50"><a href="#cb2-50" tabindex="-1"></a><span class="fu">buildDataset</span>(</span>
 <span id="cb2-51"><a href="#cb2-51" tabindex="-1"></a>  <span class="at">.path.input =</span> InputDir,</span>
 <span id="cb2-52"><a href="#cb2-52" tabindex="-1"></a>  <span class="at">.path.train =</span> OutputDir,</span>
-<span id="cb2-53"><a href="#cb2-53" tabindex="-1"></a>  <span class="at">Y.PATTERN =</span> <span class="st">&quot;^strength_mpa$&quot;</span>,</span>
+<span id="cb2-53"><a href="#cb2-53" tabindex="-1"></a>  <span class="at">Y.PATTERN =</span> <span class="st">&quot;^strengthMpa$&quot;</span>,</span>
 <span id="cb2-54"><a href="#cb2-54" tabindex="-1"></a>  <span class="at">KEY =</span> <span class="st">&quot;SampleID&quot;</span>,</span>
 <span id="cb2-55"><a href="#cb2-55" tabindex="-1"></a>  <span class="at">features =</span> <span class="fu">c</span>(</span>
 <span id="cb2-56"><a href="#cb2-56" tabindex="-1"></a>    <span class="st">&quot;thickness_mm&quot;</span>,</span>
@@ -588,19 +591,19 @@ units are an input convention: ssel does not convert them.</p>
 <tbody>
 <tr class="odd">
 <td align="left">TEST</td>
-<td align="left">strength_mpa_specimens_TEST.csv</td>
+<td align="left">strengthMpa_specimens_TEST.csv</td>
 </tr>
 <tr class="even">
 <td align="left">TRAIN-ID</td>
-<td align="left">strength_mpa_specimens_TRAIN_ids.csv</td>
+<td align="left">strengthMpa_specimens_TRAIN_ids.csv</td>
 </tr>
 <tr class="odd">
 <td align="left">TRAIN</td>
-<td align="left">strength_mpa_specimens_TRAIN.csv</td>
+<td align="left">strengthMpa_specimens_TRAIN.csv</td>
 </tr>
 </tbody>
 </table>
-<p>The response name (<code>strength_mpa</code>) and dataset basename
+<p>The response name (<code>strengthMpa</code>) and dataset basename
 (<code>specimens</code>) determine the three filenames. Read each
 product to see its role.</p>
 <div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a>TrainPath <span class="ot">&lt;-</span> <span class="fu">file.path</span>(</span>

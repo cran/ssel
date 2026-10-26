@@ -18,15 +18,21 @@ oofEnsemble <- function(.path.model, .path.train,
                         .min              = -Inf, .max = Inf,
                         .response_pattern = NULL,
                         .sort_keys        = character(0)) {
+  .keysOld <- options(datatable.keepLeadingZeros = TRUE)
+  on.exit(options(.keysOld), add = TRUE)
   stopifnot(!is.null(.response_pattern),
             is.character(.response_pattern),
             nzchar(.response_pattern))
+  .checkBound(.min, ".min")
+  .checkBound(.max, ".max")
 
   clamp <- function(x) pmax(.min, pmin(.max, x))
 
-  files       <- list.files(.path.model, pattern = "\\.Rds$", full.names = TRUE)
+  files       <- .listFiles(.path.model, pattern = "\\.Rds$", full.names = TRUE)
   fname_regex <- sprintf("^([^_]+)_(%s)_(.+)\\.Rds$", .response_pattern)
   oof_list    <- list()
+  matched     <- 0L
+  failed      <- list()
 
   for (f in files) {
     # {method}_{response}_{dataset}.Rds
@@ -34,26 +40,36 @@ oofEnsemble <- function(.path.model, .path.train,
                     regexec(fname_regex, basename(f)))[[1]]
     if (length(m) < 4) next
     method <- m[2]; response <- m[3]; dataset <- m[4]
+    matched <- matched + 1L
+    Name    <- basename(f)
 
     train_file <- file.path(.path.train,
                             paste0(response, "_", dataset, "_TRAIN.csv"))
-    if (!file.exists(train_file)) next
+    if (!file.exists(train_file)) {
+      failed[[Name]] <- "TRAIN file not found"; next
+    }
     DT <- fread(train_file)
     y  <- suppressWarnings(as.numeric(DT$y))
 
     model <- tryCatch(readRDS(f), error = function(e) NULL)
-    if (is.null(model)) next
+    if (is.null(model)) {
+      failed[[Name]] <- "model could not be read"; next
+    }
 
     pr <- tryCatch(
       merge(model$pred, model$bestTune, by = names(model$bestTune), sort = FALSE),
       error = function(e) NULL
     )
-    if (is.null(pr) || nrow(pr) == 0) next
+    if (is.null(pr) || nrow(pr) == 0) {
+      failed[[Name]] <- "no saved out-of-fold predictions"; next
+    }
     pr_pred <- suppressWarnings(as.numeric(as.character(pr$pred)))
     pr_obs  <- suppressWarnings(as.numeric(as.character(pr$obs)))
     pr_row  <- suppressWarnings(as.integer(pr$rowIndex))
     ok      <- is.finite(pr_pred) & is.finite(pr_obs) & is.finite(pr_row)
-    if (!any(ok)) next
+    if (!any(ok)) {
+      failed[[Name]] <- "no finite prediction rows"; next
+    }
 
     oof_list[[length(oof_list) + 1L]] <- data.table(
       method   = method,
@@ -66,7 +82,11 @@ oofEnsemble <- function(.path.model, .path.train,
   }
 
   OOF <- rbindlist(oof_list)
-  if (nrow(OOF) == 0) return(data.table())
+  if (nrow(OOF) == 0) {
+    .reportAudit("oofEnsemble", .path.model, .response_pattern, length(files),
+                 matched, failed, cells = 0L)
+    return(data.table())
+  }
 
   # Collapse duplicate (rowIndex) within a cell+method (can happen with
   # some tune grids): average.
@@ -162,6 +182,17 @@ oofEnsemble <- function(.path.model, .path.train,
       residual  = pw$obs - yhat
     )
   }
+
+  # A cell arrives here with rows and can still be dropped by the RMSE
+  # weighting or the per-row filter. Report it: a smaller table must not pass
+  # for a complete one.
+  if (length(out_rows) < nrow(cells)) {
+    .WARN(paste0("oofEnsemble: reconstructed ", length(out_rows), " of ",
+                 nrow(cells), " response-dataset cell(s); the rest had no",
+                 " usable ensemble weights or prediction rows."))
+  }
+  .reportAudit("oofEnsemble", .path.model, .response_pattern, length(files),
+               matched, failed, cells = length(out_rows))
 
   rbindlist(out_rows)
 }

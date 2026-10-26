@@ -399,14 +399,10 @@ target.</p>
 active companion set entering iteration <span class="math inline">\(t\)</span>, and let <span class="math inline">\(j\)</span> be the target response. A Jacobi sweep
 builds one frozen augmented snapshot. Its training and prediction
 companion sets are</p>
-<p><span class="math display">\[
-C_{j,t}^{J,tr}(i)=
-\{Y_k^{(t-1)}(i):k\in A^{(t-1)}\setminus\{j\}\},
-\]</span></p>
-<p><span class="math display">\[
-C_{j,t}^{J,pred}(u)=
-\{Z_k^{(t-1)}(u):k\in A^{(t-1)}\setminus\{j\}\}.
-\]</span></p>
+<p><span class="math display">\[C_{j,t}^{J,tr}(i)=
+\{Y_k^{(t-1)}(i):k\in A^{(t-1)}\setminus\{j\}\},\]</span></p>
+<p><span class="math display">\[C_{j,t}^{J,pred}(u)=
+\{Z_k^{(t-1)}(u):k\in A^{(t-1)}\setminus\{j\}\}.\]</span></p>
 <p>Every target therefore sees only values from the preceding completed
 iteration. “Jacobi” names this package update order; it does not imply
 parallel execution or a convergence theorem.</p>
@@ -414,22 +410,20 @@ parallel execution or a convergence theorem.</p>
 <div id="asymmetric-gaussseidel-recurrence" class="section level2">
 <h2>Asymmetric Gauss–Seidel recurrence</h2>
 <p>Gauss–Seidel targets are processed in sorted response-name order.
+That order does not depend on the session locale: ASCII case is ignored,
+and <code>_</code> and <code>.</code> sort before any other character.
 Write <span class="math inline">\(k\prec j\)</span> when <span class="math inline">\(k\)</span> precedes <span class="math inline">\(j\)</span>. Earlier targets can supply new
 training-row values to later targets in the same sweep:</p>
-<p><span class="math display">\[
-\begin{aligned}
+<p><span class="math display">\[\begin{aligned}
 C_{j,t}^{GS,tr}(i)
 &amp;=\{Y_k^{(t)}(i):k\in A^{(t-1)},k\prec j\}\\
 &amp;\quad\cup
 \{Y_k^{(t-1)}(i):k\in A^{(t-1)},j\prec k\}.
-\end{aligned}
-\]</span></p>
+\end{aligned}\]</span></p>
 <p>Prediction companions do <strong>not</strong> refresh within the
 sweep:</p>
-<p><span class="math display">\[
-C_{j,t}^{GS,pred}(u)=
-\{Z_k^{(t-1)}(u):k\in A^{(t-1)}\setminus\{j\}\}.
-\]</span></p>
+<p><span class="math display">\[C_{j,t}^{GS,pred}(u)=
+\{Z_k^{(t-1)}(u):k\in A^{(t-1)}\setminus\{j\}\}.\]</span></p>
 <p>This asymmetry is essential. Describing both row classes with one
 Gauss–Seidel recurrence would misstate the implemented method.</p>
 </div>
@@ -440,13 +434,11 @@ files. For model cell <span class="math inline">\(c\)</span>, let <span class="m
 importance for feature <span class="math inline">\(f\)</span>, and let
 <span class="math inline">\(T_c=\sum_f I_{fc}\)</span>, omitting missing
 scores. ssel defines</p>
-<p><span class="math display">\[
-J_{fc}=
+<p><span class="math display">\[J_{fc}=
 \begin{cases}
 100I_{fc}/T_c, &amp; T_c&gt;0,\\
 0, &amp; T_c\le0.
-\end{cases}
-\]</span></p>
+\end{cases}\]</span></p>
 <p>The sum is computed before companion features are filtered, and
 normalized values are rounded to four decimals. This mechanical
 normalization does not establish comparability across learner
@@ -456,9 +448,7 @@ families.</p>
 <h2>Fixed and shadow gates</h2>
 <p>The fixed gate retains companion response <span class="math inline">\(k\)</span> when its non-missing mean normalized
 importance reaches the supplied percentage threshold <span class="math inline">\(\tau\)</span>:</p>
-<p><span class="math display">\[
-\overline J_k\ge\tau.
-\]</span></p>
+<p><span class="math display">\[\overline J_k\ge\tau.\]</span></p>
 <p>The comparison is inclusive. The table helper demonstrates the exact
 rule:</p>
 <div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a>importance <span class="ot">&lt;-</span> data.table<span class="sc">::</span><span class="fu">data.table</span>(</span>
@@ -487,18 +477,15 @@ implement Boruta’s iterative random probes or statistical tests <span class="c
 <h2>Active-set history</h2>
 <p>Let <span class="math inline">\(G_t\)</span> be the raw gate result.
 The pipeline first applies the fallback</p>
-<p><span class="math display">\[
-\widetilde G_t=
+<p><span class="math display">\[\widetilde G_t=
 \begin{cases}
 R, &amp; G_t=\varnothing,\\
 G_t, &amp; \text{otherwise}.
-\end{cases}
-\]</span></p>
+\end{cases}\]</span></p>
 <p>With history width <span class="math inline">\(K=\texttt{chainStable}\)</span>, once enough
 preceding returned sets exist it defines</p>
-<p><span class="math display">\[
-A_t=\widetilde G_t\cap A_{t-1}\cap\cdots\cap A_{t-K+1}.
-\]</span></p>
+<p><span class="math display">\[A_t=\widetilde G_t\cap
+A_{t-1}\cap\cdots\cap A_{t-K+1}.\]</span></p>
 <p>Those preceding sets may already contain older intersections. An
 empty intersection is not replaced by <span class="math inline">\(R\)</span> a second time. The standalone
 <code>computeActiveByImportance()</code> helper performs only its
@@ -510,11 +497,9 @@ empty-result fallback.</p>
 <p>Consecutive training delivery tables are compared by current row and
 response column position, not by a key join. Compatible ordering is
 therefore a precondition. ssel defines</p>
-<p><span class="math display">\[
-\delta_t=\max_{i,r}
+<p><span class="math display">\[\delta_t=\max_{i,r}
 \frac{|Y_r^{(t)}(i)-Y_r^{(t-1)}(i)|}
-     {\max\{1,|Y_r^{(t-1)}(i)|\}},
-\]</span></p>
+     {\max\{1,|Y_r^{(t-1)}(i)|\}},\]</span></p>
 <p>removing missing cells only in the final maximum. Although
 dimensionless, <span class="math inline">\(\delta_t\)</span> is not
 invariant to response-unit rescaling or translation because of the fixed
@@ -523,9 +508,7 @@ been reached.</p>
 <p>For metric history, ssel retains the first minimum-RMSE
 <code>ensemble.RMSE</code> dataset row for each response and uses that
 row’s squared sample correlation <span class="math inline">\(R^2_{r,t}\)</span>. The iteration mean is</p>
-<p><span class="math display">\[
-\overline{R^2}_t=|R|^{-1}\sum_rR^2_{r,t}.
-\]</span></p>
+<p><span class="math display">\[\overline{R^2}_t=|R|^{-1}\sum_rR^2_{r,t}.\]</span></p>
 <p>Only a strict increase over the accepted historical mean resets the
 non-improvement strike. A separate divergence strike increments only
 when <span class="math inline">\(\delta_t&gt;\delta_{t-1}\)</span>.
@@ -543,9 +526,7 @@ The full file prerequisites and partial-write behavior are documented on
 <h2>Per-response iteration stitch</h2>
 <p>At completion, response <span class="math inline">\(r\)</span>
 selects</p>
-<p><span class="math display">\[
-t_r^\star=\operatorname*{first\,argmax}_{t\in\{0,\ldots,T\}}R^2_{r,t}.
-\]</span></p>
+<p><span class="math display">\[t_r^\star=\operatorname*{first\,argmax}_{t\in\{0,\ldots,T\}}R^2_{r,t}.\]</span></p>
 <p>Iteration zero is eligible. Baseline scores are unrounded; later
 candidates use stored four-decimal scores, so rounding can affect the
 choice. The final <code>Yo.csv</code> and the five current summary

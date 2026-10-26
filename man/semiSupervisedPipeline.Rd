@@ -37,8 +37,7 @@ rejected; their downstream behavior is described under input discovery.}
 
 \item{responses}{Character vector of target response columns. Exactly one is
 required when \code{.path.iter} is supplied. A standalone call can receive
-multiple responses, but its final serial evaluation has the failure mode
-described under \strong{Final serial re-emission}.}
+multiple responses; each final TEST split uses its fitted TRAIN schema.}
 
 \item{datasets}{Character dataset identifiers matched to CSV basenames.
 Matching preserves \code{\link[=list.files]{list.files()}} order, not this vector's order.}
@@ -265,31 +264,24 @@ only rows still emitted as predictions by the latest accepted full fit.
 
 After the loop and any restoration, the function rebuilds one TEST file for
 every declared dataset/response cell. It uses all rows from each original
-selected CSV whose key belongs to the first-file \eqn{U}, but takes feature
-names from the final round dataset. Missing declared datasets or required
+selected CSV whose key belongs to the first-file \eqn{U}, taking feature
+names from that cell's final TRAIN split, excluding its \code{y} column.
+Other target responses and discarded features do not enter TEST.
+Missing declared datasets or required
 feature columns fail through file/data.table operations.
-
-In a standalone multi-response call, full promotion rounds can finish before
-this final step fails. For target \eqn{r}, final TEST construction removes
-only \code{set} and \eqn{r}; other target-response columns remain. The supervised
-TRAIN split excludes those response columns, so \code{\link[=trainRegressionModel]{trainRegressionModel()}}
-can find more than its required single TEST-only column: the key plus the
-other responses. Its exactly-one-key invariant then errors before successful
-final re-emission. The function does not proactively restrict standalone
-calls to one response.
 
 \code{\link[=trainRegressionModel]{trainRegressionModel()}} then runs with \code{TRAIN = FALSE} and
 \code{PARALLEL = FALSE}, overwriting cell metric and response CSVs. For each cell,
 it asserts that the number of unique \code{ensemble.RMSE} keys equals
-\code{length(U)}. It does not compare key sets. Duplicate keys in \eqn{U} make the
-assertion fail even when all unique keys were emitted, while a different key
-set of the same cardinality could pass.
+\code{length(U)} and that the key sets agree. Duplicate keys in \eqn{U} make the
+assertion fail even when all unique keys were emitted.
 
-This serial pass does not rerun \code{\link[=auditQuantiles]{auditQuantiles()}}, \code{\link[=predictModel]{predictModel()}},
-\code{\link[=auditOverfit]{auditOverfit()}}, or \code{\link[=aggregateResponses]{aggregateResponses()}}. Consequently, the cell
-response files cover the original prediction pool, but summary and export
-products remain from the preceding full round and can still represent only
-its then-unpromoted remainder.
+The shared prediction-summary calculation and \code{\link[=aggregateResponses]{aggregateResponses()}} then
+refresh summaries and exports for the original prediction pool, including
+promoted keys. Aggregation uses the original selected datasets for observed
+and prediction row membership. The accepted fitted models, OOF residuals,
+\code{\link[=auditQuantiles]{auditQuantiles()}} offsets and \code{\link[=auditOverfit]{auditOverfit()}} results are retained;
+refreshing the delivery does not fit or evaluate models again.
 }
 
 \section{Conditions, RNG, and side effects}{

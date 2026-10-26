@@ -12,12 +12,14 @@ trainModel <- function(
     .max       = Inf,
     .responses = NULL   # optional filter: train only these responses (default: all detected)
 ) {
-  FILES     <- list.files(.path.train, pattern = "_TRAIN\\.csv$", full.names = FALSE) |>
-    sub(pattern = "\\.csv$", replacement = "") |> basename()
-  if (!is.null(.responses))
-    FILES <- FILES[sapply(FILES, function(.x) strsplit(.x, "_")[[1]][1]) %in% .responses]
+  .keysOld <- options(datatable.keepLeadingZeros = TRUE)
+  on.exit(options(.keysOld), add = TRUE)
+  .checkBound(.min, ".min")
+  .checkBound(.max, ".max")
+
+  FILES     <- .splitFiles(.path.train, .responses, "trainModel")
   RESPONSES <- sapply(FILES, function(.x) strsplit(.x, "_")[[1]][1]) |> unname() |> unique()
-  DATASETS  <- sapply(FILES, function(.x) strsplit(.x, "_")[[1]][2]) |> unname() |> unique() |> sort() |> sample()
+  DATASETS  <- sapply(FILES, function(.x) strsplit(.x, "_")[[1]][2]) |> unname() |> unique() |> .portableSort() |> sample()
 
   if (!dir.exists(.path.model))    dir.create(.path.model)
   if (!dir.exists(.path.metrics))  dir.create(.path.metrics)
